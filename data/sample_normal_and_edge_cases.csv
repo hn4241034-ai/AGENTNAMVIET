@@ -1,0 +1,17 @@
+lead_id,company_name,tax_code,contact_name,phone,email,industry,region,product_interest,need_description,budget_vnd,source_channel,registered_at
+L001,Công ty TNHH Hoàng Hà,0102233445,Trần Văn An,0911223344,an.tran@hoangha.vn,Sản xuất,Hà Nội,NV-ERP,Cần phần mềm quản lý tồn kho và kế toán sản xuất gấp trong tháng này,150000000,Hội thảo,2026-11-08
+L002,Cty HH,0102233445,Lê Thị Bình,0911223355,binh.le@hoangha.vn,Sản xuất,Miền Bắc,NV-HRM,Muốn thêm phân hệ chấm công và tính lương cho 120 nhân sự,60000000,Website,2026-11-09
+L003,Hoàng Hà Corp,,Nguyễn Văn Cường,0911223344,cuong@hoangha.vn,Sản xuất,Hà Nội,,Hỏi báo giá giải pháp ERP tổng thể và demo tuần này,,Campaign,2026-11-10
+L004,Công ty Cổ phần Minh Phát,0304455667,Phạm Minh Đức,0903445566,duc@minhphat.com,Bán lẻ,TP.HCM,NV-POS,Quản lý 8 cửa hàng bán lẻ và hóa đơn mã vạch,45000000,Website,2026-11-08
+L005,Cty CP Truyền thông Ánh Dương,0308899001,Hoàng Lan,0933889900,lan@anhduongmedia.vn,Dịch vụ,TP.HCM,Khác,Cần đơn vị thiết kế logo quay phim quảng cáo Facebook cho chiến dịch Tết,450000000,Campaign,2026-11-09
+L006,Xưởng May Mặc Thành Công,,Vũ Thu Hà,0977112233,,Sản xuất,Hà Nội,,Đang tìm hiểu phần mềm quản trị sản xuất nhưng chưa rõ ngân sách và số user,,Hội thảo,2026-11-09
+L007,Công ty TNHH Thương mại Thái Bình Dương,0312998877,Đỗ Quốc Huy,0909112233,contact@thaibinhduong.vn,Thương mại,TP.HCM,NV-CRM,Đăng ký lại nhận tài liệu hội thảo CRM,50000000,Hội thảo,2026-11-10
+L008,Công ty Cổ phần Logistics Đông Nam,0105566778,Nguyễn Hải Yến,0912345678,yen.nh@dongnamlog.vn,Logistics,Hà Nội,NV-ERP,Chi nhánh Hà Nội muốn hỏi triển khai ERP và theo dõi đơn hàng,180000000,Website,2026-11-10
+L009,Công ty Tân Tiến,0401122334,Trương Công Minh,0905112233,minh@tantien.vn,Thương mại,Đà Nẵng,NV-CRM,Cần quản lý pipeline bán hàng cho đội sales 15 người,35000000,Website,2026-11-08
+L010,Tân Tiến Tech,,Lý Gia Hân,0905998877,han@tantientech.io,Thương mại,Đà Nẵng,NV-CRM,Tìm hiểu CRM và chăm sóc khách hàng B2B,30000000,Campaign,2026-11-10
+L011,Tập đoàn Thực phẩm Sài Gòn,0307766554,Nguyễn Thành Long,0908776655,long@saigonfoods.vn,Sản xuất,TP.HCM,NV-ERP,Triển khai ERP toàn diện cho 3 nhà máy tại Bình Dương và TP.HCM cần demo ngay,300000000,Hội thảo,2026-11-10
+L012,Công ty Nông nghiệp Cao Nguyên,,Y Blưk Niê,0944556677,bluk@caonguyenagri.vn,Nông nghiệp,Tây Nguyên,NV-ERP,Quản lý trang trại và kho nông sản xuất khẩu,120000000,Website,2026-11-10
+L013,Cửa hàng Tiện lợi Sao Mai,,Trần Ngọc Bích,0966112299,bich@saomai.vn,Bán lẻ,Đà Nẵng,NV-POS,Cần phần mềm tính tiền POS cho 2 cửa hàng mới mở tháng này,20000000,Facebook Ads,2026-11-10
+L014,Chuỗi Nhà thuốc An Tâm,0309988112,Lê Văn Kiên,0988776655,muahang@antampharma.vn,Dược phẩm,Đà Nẵng,NV-POS,Đăng ký tự động từ landing page chiến dịch tháng 11,40000000,Campaign,2026-11-10
+L015,Trung tâm Anh ngữ Global,,Phạm Thu Trang,0918223344,trang@globaledu.vn,Giáo dục,TP.HCM,NV-CRM,Quản lý học viên và lịch chăm sóc phụ huynh,32000000,Website,2026-11-10
+L016,Công ty Vận tải Biển Đông,0315544332,Võ Văn Hùng,0907665544,hung@biendongship.vn,Logistics,Bình Dương,NV-HRM,Cần chấm công ca kíp và tính lương tài xế gấp,95000000,Hội thảo,2026-11-10
