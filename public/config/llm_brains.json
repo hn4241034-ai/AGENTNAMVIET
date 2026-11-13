@@ -1,0 +1,26 @@
+{
+  "enabled": true,
+  "provider": "Google Gemini (OpenAI-Compatible)",
+  "endpoint": "https://generativelanguage.googleapis.com/v1beta/openai/chat/completions",
+  "primary_model": "gemini-3.5-flash-lite",
+  "fallback_models": [
+    "gemma-4-26b-a4b-it",
+    "gemini-flash-latest"
+  ],
+  "timeout_seconds": 25,
+  "brains": [
+    {
+      "id": "brain_1",
+      "label": "Bộ não #1 (Primary)",
+      "api_key": "AQ.Ab8RN6ICNop2UBt4ul964-JF4UihDDdox_6hnpDjeUmsiN-UGw",
+      "active": true
+    },
+    {
+      "id": "brain_2",
+      "label": "Bộ não #2 (Failover)",
+      "api_key": "AQ.Ab8RN6KJuvGO06PZqFNctc-Isw0bchkV2ooWAjxJHf2RJT4jvQ",
+      "active": true
+    }
+  ]
+}
+

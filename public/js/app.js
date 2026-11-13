@@ -89,6 +89,7 @@
     const h = window.location.hash;
     if (h === "#quy-trinh") showPage("workflow", false);
     else if (h === "#nhap-du-lieu") showPage("workspace", false);
+    else if (h === "#bao-cao-dashboard" || h === "#bao-cao") showDashboardView();
     else showPage("landing", false);
     await checkServerHealth();
     await loadBrainsStatus();
@@ -164,6 +165,14 @@
         return;
       }
     } catch {}
+    try {
+      const res = await fetch("config/business_rules.json");
+      if (res.ok) {
+        state.config = await res.json();
+        $("#configEditor").value = JSON.stringify(state.config, null, 2);
+        return;
+      }
+    } catch {}
     // Fallback minimal config if opened offline
     state.config = { schema: { required_columns: ["lead_id", "company_name", "contact_name", "phone", "email", "industry", "region", "product_interest", "need_description", "budget_vnd", "source_channel", "registered_at"], column_aliases: {} }, sales_staff: [], products: [], contact_history: [] };
   }
@@ -172,7 +181,8 @@
     const pages = {
       landing: { view: "#landingView", nav: "#navLandingBtn", hash: "#gioi-thieu" },
       workflow: { view: "#workflowView", nav: "#navWorkflowBtn", hash: "#quy-trinh" },
-      workspace: { view: "#workspaceView", nav: "#navWorkspaceBtn", hash: "#nhap-du-lieu" }
+      workspace: { view: "#workspaceView", nav: "#navWorkspaceBtn", hash: "#nhap-du-lieu" },
+      dashboard: { view: "#dashboardView", nav: "#navDashboardBtn", hash: "#bao-cao-dashboard" }
     };
     const target = pages[pageName] || pages.landing;
 
@@ -192,12 +202,21 @@
   function showLandingView() { showPage("landing"); }
   function showWorkflowView() { showPage("workflow"); }
   function showWorkspaceView() { showPage("workspace"); }
+  function showDashboardView() {
+    if (state.agentOutput) {
+      renderResultsDashboard();
+      $("#resultsSection")?.classList.remove("hidden");
+    }
+    showPage("dashboard");
+  }
 
   function bindEvents() {
     $("#brandHomeBtn").addEventListener("click", showLandingView);
     $("#navLandingBtn").addEventListener("click", showLandingView);
     $("#navWorkflowBtn").addEventListener("click", showWorkflowView);
     $("#navWorkspaceBtn").addEventListener("click", showWorkspaceView);
+    $("#navDashboardBtn").addEventListener("click", showDashboardView);
+    $("#btnBackToWorkspace")?.addEventListener("click", showWorkspaceView);
     $("#btnCardGoWorkflow")?.addEventListener("click", showWorkflowView);
     $("#btnWorkflowBackLanding")?.addEventListener("click", showLandingView);
     $("#btnBackWorkflow")?.addEventListener("click", showWorkflowView);
@@ -225,6 +244,7 @@
       const h = window.location.hash;
       if (h === "#quy-trinh") showPage("workflow", false);
       else if (h === "#nhap-du-lieu") showPage("workspace", false);
+      else if (h === "#bao-cao-dashboard" || h === "#bao-cao") showDashboardView();
       else showPage("landing", false);
     });
 
@@ -232,8 +252,8 @@
     $("#btnCloseLLM").addEventListener("click", () => $("#llmPanel").classList.add("hidden"));
     $("#btnTestBrains").addEventListener("click", testServerBrains);
 
-    $("#btnLoadValidSample").addEventListener("click", () => loadSampleUrl("/data/sample_normal_and_edge_cases.csv", "Mẫu chuẩn (16 leads + Edge Cases)"));
-    $("#btnLoadInvalidSample").addEventListener("click", () => loadSampleUrl("/data/sample_invalid_format.csv", "Mẫu sai định dạng (Test ràng buộc)"));
+    $("#btnLoadValidSample").addEventListener("click", () => loadSampleUrl("data/sample_normal_and_edge_cases.csv", "Mẫu chuẩn (16 leads + Edge Cases)"));
+    $("#btnLoadInvalidSample").addEventListener("click", () => loadSampleUrl("data/sample_invalid_format.csv", "Mẫu sai định dạng (Test ràng buộc)"));
     $("#btnDownloadTemplate").addEventListener("click", () => {
       const cols = (state.config?.schema?.required_columns || []).join(",");
       const sampleRow = "L001,Công ty TNHH Minh Tâm,0101234567,Nguyễn Văn A,0912345678,a@minhtam.vn,Sản xuất,Hà Nội,NV-ERP,Cần phần mềm quản trị sản xuất và kho,100000000,Website,2026-11-10";
@@ -401,7 +421,14 @@
   async function loadSampleUrl(url, label) {
     try {
       setUploadProgress(20, `Đang tải ${label}...`);
-      const res = await fetch(url);
+      let res = await fetch(url).catch(() => null);
+      if (!res || !res.ok) {
+        const altUrl = url.startsWith("/") ? url.slice(1) : "/" + url;
+        res = await fetch(altUrl).catch(() => null);
+      }
+      if (!res || !res.ok) {
+        throw new Error("Không thể tải file mẫu");
+      }
       setUploadProgress(65, `Đang phân tích ${label}...`);
       const csvText = await res.text();
       setUploadProgress(100, `Hoàn tất tải ${label}`);
@@ -860,7 +887,7 @@
     $("#resultsSection").classList.remove("hidden");
     updateFinalizeUI();
     updateWorkflowSteps(6, { validationState: "ok", cleanState: "ok", verifyState: "ok", finalized: state.finalized });
-    $("#resultsSection").scrollIntoView({ behavior: "smooth" });
+    showDashboardView();
   }
 
   function updateFinalizeUI() {
@@ -941,10 +968,10 @@
     `).join("");
 
     // 2. Executive Brief & Visual Charts
-    $("#executiveBriefBox").textContent = out.executive_brief;
+    renderExecutiveBrief(out.executive_brief);
     const totalCust = Math.max(1, s.unique_customers);
 
-    // 2a. SVG Donut Chart for Priority
+    // 2a. SVG Donut Chart for Priority (Biểu đồ tròn)
     const priorityDefs = [
       { label: "Ưu tiên Cao", count: s.by_priority["Cao"], color: "#34d399" },
       { label: "Trung bình", count: s.by_priority["Trung bình"], color: "#60a5fa" },
@@ -953,7 +980,10 @@
     ];
     $("#priorityDonutChart").innerHTML = buildDonutChartHTML(priorityDefs, s.unique_customers, "Khách duy nhất");
 
-    // 2b. Product Group Distribution Bars
+    // 2b. Vertical Column Chart for Regions (Biểu đồ cột đứng)
+    $("#regionColumnChart").innerHTML = buildRegionColumnChartHTML(out.customers);
+
+    // 2c. Product Group Distribution Bars (Biểu đồ thanh ngang)
     const prodCounts = { "NV-ERP": 0, "NV-CRM": 0, "NV-HRM": 0, "NV-POS": 0, "Khác / Chưa rõ": 0 };
     for (const c of out.customers) {
       const p = c.matched_products?.[0] || c.product_interest || "";
@@ -972,7 +1002,7 @@
       `;
     }).join("");
 
-    // 2c. Routing Status Distribution Bars
+    // 2d. Routing Status Distribution Bars (Biểu đồ thanh ngang)
     const assignedCount = out.customers.filter(c => c.assignment_status === "assigned").length;
     const statusDefs = [
       { label: "Đã giao NVKD", count: assignedCount, color: "#34d399" },
@@ -991,7 +1021,7 @@
       `;
     }).join("");
 
-    // 2d. Staff Stacked Load Chart
+    // 2e. Staff Stacked Load Chart (Biểu đồ thanh ngang xếp chồng)
     $("#staffLoadChart").innerHTML = out.report.by_staff.map(st => {
       const cap = Math.max(1, st.max_weekly_capacity);
       const pInit = Math.min(100, Math.round((st.initial_load / cap) * 100));
@@ -1061,7 +1091,7 @@
 
     return `
       <svg width="120" height="120" viewBox="0 0 120 120" style="transform:rotate(-90deg);flex-shrink:0;">
-        <circle cx="60" cy="60" r="${r}" fill="transparent" stroke="#e4e4e7" stroke-width="14" />
+        <circle cx="60" cy="60" r="${r}" fill="transparent" stroke="#fde68a" stroke-width="14" />
         ${circles}
         <g style="transform:rotate(90deg);transform-origin:60px 60px;">
           <text x="60" y="57" text-anchor="middle" fill="#111111" font-size="20" font-weight="800">${totalVal}</text>
@@ -1069,6 +1099,91 @@
         </g>
       </svg>
       <div class="donut-legend">${legend}</div>
+    `;
+  }
+
+  function renderExecutiveBrief(text) {
+    const el = $("#executiveBriefBox");
+    if (!el) return;
+    const lines = (text || "").split("\n").map(l => l.trim()).filter(l => l.length > 0);
+    if (lines.length === 0) {
+      el.innerHTML = '<p class="hint">Chưa có tóm tắt điều hành.</p>';
+      return;
+    }
+    el.innerHTML = lines.map(line => {
+      let sign = "+";
+      let content = line;
+      if (line.startsWith("+")) {
+        sign = "+";
+        content = line.slice(1).trim();
+      } else if (line.startsWith("-")) {
+        sign = "-";
+        content = line.slice(1).trim();
+      } else if (line.startsWith("•") || line.startsWith("*")) {
+        content = line.slice(1).trim();
+        const lower = content.toLowerCase();
+        sign = (lower.includes("có") && lower.includes("cần")) || lower.includes("sai") || lower.includes("chưa") || lower.includes("chặn") ? "-" : "+";
+      }
+      const isPlus = sign === "+";
+      return `
+        <div class="brief-sign-row ${isPlus ? "sign-pos" : "sign-neg"}">
+          <span class="sign-tag ${isPlus ? "sign-plus" : "sign-minus"}">${sign}</span>
+          <span class="brief-text">${escapeHtml(content)}</span>
+        </div>
+      `;
+    }).join("");
+  }
+
+  function buildRegionColumnChartHTML(customers) {
+    const regions = [
+      { key: "Hà Nội", label: "Hà Nội", short: "HN" },
+      { key: "TP.HCM", label: "TP.HCM", short: "HCM" },
+      { key: "Đà Nẵng", label: "Đà Nẵng", short: "ĐN" },
+      { key: "Bình Dương", label: "Bình Dương", short: "BD" },
+      { key: "Cần Thơ", label: "Cần Thơ", short: "CT" },
+      { key: "Hải Phòng", label: "Hải Phòng", short: "HP" },
+      { key: "Khác", label: "Khác / Chưa rõ", short: "Khác" }
+    ];
+    const counts = { "Hà Nội": 0, "TP.HCM": 0, "Đà Nẵng": 0, "Bình Dương": 0, "Cần Thơ": 0, "Hải Phòng": 0, "Khác": 0 };
+    for (const c of customers) {
+      const reg = (c.region || "").trim().toLowerCase();
+      let matched = false;
+      for (const r of regions) {
+        if (r.key === "Khác") continue;
+        if (reg.includes(r.key.toLowerCase()) || reg.includes(r.short.toLowerCase())) {
+          counts[r.key]++;
+          matched = true;
+          break;
+        }
+      }
+      if (!matched) counts["Khác"]++;
+    }
+    const maxVal = Math.max(1, ...Object.values(counts));
+    const total = Math.max(1, customers.length);
+
+    const cols = regions.map((r, i) => {
+      const val = counts[r.key];
+      const pct = Math.round((val / total) * 100);
+      const heightPct = Math.max(12, Math.round((val / maxVal) * 100));
+      const bg = (i < 2)
+        ? "linear-gradient(180deg, #f59e0b 0%, #d97706 100%)"
+        : (i % 2 === 0 ? "linear-gradient(180deg, #fbbf24 0%, #b45309 100%)" : "linear-gradient(180deg, #fde68a 0%, #d97706 100%)");
+
+      return `
+        <div class="col-chart-col" title="${escapeHtml(r.label)}: ${val} khách (${pct}%)">
+          <span class="col-chart-val">${val}</span>
+          <div class="col-chart-bar-wrap">
+            <div class="col-chart-bar" style="height:${heightPct}%;background:${bg};"></div>
+          </div>
+          <span class="col-chart-lbl">${r.short}</span>
+          <span class="col-chart-pct">${pct}%</span>
+        </div>
+      `;
+    }).join("");
+
+    return `
+      <div class="col-chart-grid">${cols}</div>
+      <div class="col-chart-baseline"></div>
     `;
   }
 
@@ -1084,37 +1199,38 @@
     const dupRate = s.total_raw_records > 0 ? Math.round((s.duplicates_merged / s.total_raw_records) * 100) : 0;
 
     const mgrItems = out.report.lists.manager_decisions.slice(0, 5).map(c =>
-      `<li><strong>${escapeHtml(c.company_name)}</strong> (${escapeHtml(c.customer_id)}): ${escapeHtml(c.escalation_reasons.join("; "))}</li>`
+      `<li class="sign-item sign-neg"><span class="sign-tag sign-minus">-</span> <span><strong>${escapeHtml(c.company_name)}</strong> (${escapeHtml(c.customer_id)}): ${escapeHtml(c.escalation_reasons.join("; "))}</span></li>`
     ).join("");
     const unItems = out.report.lists.unassigned.slice(0, 5).map(c =>
-      `<li><strong>${escapeHtml(c.company_name)}</strong>: Ngành ${escapeHtml(c.industry || "Trống")} · KV ${escapeHtml(c.region || "Trống")}</li>`
+      `<li class="sign-item sign-neg"><span class="sign-tag sign-minus">-</span> <span><strong>${escapeHtml(c.company_name)}</strong>: Chưa có NVKD phụ trách (Ngành ${escapeHtml(c.industry || "Trống")} · KV ${escapeHtml(c.region || "Trống")})</span></li>`
     ).join("");
     const dncItems = out.report.lists.do_not_contact.slice(0, 4).map(c =>
-      `<li><strong>${escapeHtml(c.company_name)}</strong>: Chặn theo lịch sử liên hệ</li>`
+      `<li class="sign-item sign-neg"><span class="sign-tag sign-minus">-</span> <span><strong>${escapeHtml(c.company_name)}</strong>: Chặn gọi trùng / ngừng liên hệ theo lịch sử</span></li>`
     ).join("");
 
     return `
-      <div class="report-block">
-        <strong class="rb-title">I. Tổng hợp Dữ liệu & Giá trị Cơ hội</strong>
-        <ul>
-          <li>Tiếp nhận <strong>${s.total_raw_records}</strong> hồ sơ → gộp <strong>${s.duplicates_merged}</strong> bản ghi trùng (${dupRate}%) → còn <strong>${s.unique_customers}</strong> khách hàng duy nhất.</li>
-          <li>Tổng ngân sách tiềm năng hợp lệ (đã loại sai sản phẩm & DNC): <strong>${skills.formatVND(validPipelineBudget)}</strong>.</li>
-          <li>Phát hiện <strong>${wrongProdList.length}</strong> hồ sơ sai sản phẩm (đã chặn nâng ưu tiên dù ngân sách lớn).</li>
+      <div class="report-block interactive-panel">
+        <strong class="rb-title"><span class="star-yellow">✳</span> I. Tổng hợp Dữ liệu & Giá trị Cơ hội</strong>
+        <ul class="report-sign-list">
+          <li class="sign-item sign-pos"><span class="sign-tag sign-plus">+</span> <span>Tiếp nhận <strong>${s.total_raw_records}</strong> hồ sơ → gộp <strong>${s.duplicates_merged}</strong> bản ghi trùng (${dupRate}%) → còn <strong>${s.unique_customers}</strong> khách hàng duy nhất.</span></li>
+          <li class="sign-item sign-pos"><span class="sign-tag sign-plus">+</span> <span>Tổng ngân sách tiềm năng hợp lệ (đã loại sai sản phẩm & DNC): <strong>${skills.formatVND(validPipelineBudget)}</strong>.</span></li>
+          <li class="sign-item sign-neg"><span class="sign-tag sign-minus">-</span> <span>Phát hiện <strong>${wrongProdList.length}</strong> hồ sơ sai sản phẩm (đã chặn nâng ưu tiên dù ngân sách lớn).</span></li>
         </ul>
       </div>
-      <div class="report-block">
-        <strong class="rb-title">II. Trường hợp Cần Xử lý & Giám sát</strong>
-        <ul>
-          ${mgrItems || "<li>Không có ca cần Trưởng phòng duyệt thêm.</li>"}
+      <div class="report-block interactive-panel">
+        <strong class="rb-title"><span class="star-yellow">✳</span> II. Trường hợp Cần Xử lý & Giám sát</strong>
+        <ul class="report-sign-list">
+          ${mgrItems || `<li class="sign-item sign-pos"><span class="sign-tag sign-plus">+</span> <span>Không có ca cần Trưởng phòng duyệt thêm.</span></li>`}
           ${unItems}
           ${dncItems}
         </ul>
       </div>
-      <div class="report-block">
-        <strong class="rb-title">III. Kế hoạch Hành động Đội Kinh doanh</strong>
-        <ul>
-          <li>Đã soạn sẵn <strong>${outreachCount}</strong> bản nháp tiếp cận / chốt demo và <strong>${clarifyCount}</strong> bộ câu hỏi bổ sung cho hồ sơ thiếu thông tin.</li>
-          <li>Ưu tiên gọi ngay nhóm <strong>Cao (${s.by_priority["Cao"]} KH)</strong> và xử lý <strong>${s.manager_decision_count} ca</strong> đang chờ Trưởng phòng phê duyệt.</li>
+      <div class="report-block interactive-panel">
+        <strong class="rb-title"><span class="star-yellow">✳</span> III. Kế hoạch Hành động Đội Kinh doanh</strong>
+        <ul class="report-sign-list">
+          <li class="sign-item sign-pos"><span class="sign-tag sign-plus">+</span> <span>Đã soạn sẵn <strong>${outreachCount}</strong> bản nháp tiếp cận / chốt demo và <strong>${clarifyCount}</strong> bộ câu hỏi bổ sung cho hồ sơ thiếu thông tin.</span></li>
+          <li class="sign-item sign-pos"><span class="sign-tag sign-plus">+</span> <span>Ưu tiên gọi ngay nhóm <strong>Cao (${s.by_priority["Cao"]} KH)</strong> và xử lý <strong>${s.manager_decision_count} ca</strong> đang chờ Trưởng phòng phê duyệt.</span></li>
+          <li class="sign-item sign-neg"><span class="sign-tag sign-minus">-</span> <span>Giải quyết dứt điểm các ca chờ phê duyệt trước 17h00 để kịp tiến độ tiếp cận.</span></li>
         </ul>
       </div>
     `;
@@ -1443,6 +1559,21 @@
     ).join(" ");
     const detailedReportHtml = buildDetailedReportHTML(out);
     const donutHtml = $("#priorityDonutChart")?.innerHTML || "";
+    const colChartHtml = buildRegionColumnChartHTML(out.customers);
+    const briefLines = (out.executive_brief || "").split("\n").map(l => l.trim()).filter(l => l.length > 0);
+    const briefFormattedHtml = briefLines.map(line => {
+      let sign = "+";
+      let content = line;
+      if (line.startsWith("+")) { sign = "+"; content = line.slice(1).trim(); }
+      else if (line.startsWith("-")) { sign = "-"; content = line.slice(1).trim(); }
+      else if (line.startsWith("•") || line.startsWith("*")) {
+        content = line.slice(1).trim();
+        const low = content.toLowerCase();
+        sign = (low.includes("có") && low.includes("cần")) || low.includes("sai") || low.includes("chưa") || low.includes("chặn") ? "-" : "+";
+      }
+      const isPlus = sign === "+";
+      return `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;"><span class="sign-tag ${isPlus ? "sign-plus" : "sign-minus"}">${sign}</span><span>${escapeHtml(content)}</span></div>`;
+    }).join("");
 
     const html = `<!DOCTYPE html>
 <html lang="vi">
@@ -1453,27 +1584,40 @@
 <style>
   body { margin:0; padding:28px; font-family:"Segoe UI",system-ui,sans-serif; background:#ffffff; color:#111111; line-height:1.5; }
   .wrap { max-width:1280px; margin:0 auto; }
-  .hdr { background:#fefce8; border:1px solid #eab308; border-radius:14px; padding:20px 24px; margin-bottom:20px; }
+  .hdr { background:#fffdf5; border:1px solid #d97706; border-radius:14px; padding:20px 24px; margin-bottom:20px; }
   h1 { margin:0 0 6px; font-size:22px; color:#111111; }
-  h2 { margin:22px 0 10px; font-size:17px; color:#111111; border-left:4px solid #facc15; padding-left:10px; }
+  h2 { margin:22px 0 10px; font-size:17px; color:#111111; border-left:4px solid #f59e0b; padding-left:10px; }
   .meta { color:#52525b; font-size:13px; }
   .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:12px; margin:14px 0; }
   .kpi { background:#ffffff; border:1px solid #e4e4e7; border-radius:10px; padding:12px 14px; }
   .kpi .lbl { font-size:12px; color:#52525b; }
   .kpi .val { font-size:24px; font-weight:800; color:#111111; margin-top:4px; }
-  .brief { background:#fefce8; border:1px solid #fde047; border-radius:10px; padding:14px; white-space:pre-wrap; font-family:inherit; color:#111111; }
+  .brief { background:#fffdf5; border:1px solid #fcd34d; border-left:5px solid #d97706; border-radius:10px; padding:16px; font-family:inherit; color:#111111; font-size:13px; }
   .pill { display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; margin:2px; }
   .pill.ok { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
   .pill.err { background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; }
   .donut-legend { display:grid; gap:6px; flex:1; font-size:13px; }
   .donut-legend-item { display:flex; align-items:center; justify-content:space-between; gap:8px; }
   .lg-dot { display:inline-block; width:10px; height:10px; border-radius:50%; margin-right:6px; }
-  .detail-report-list { display:grid; gap:8px; font-size:13px; }
-  .detail-report-item { padding:8px 10px; border-radius:8px; background:#fefce8; border:1px solid #fde68a; }
+  .report-sign-list { list-style:none; padding:0; margin:6px 0 0; display:flex; flex-direction:column; gap:6px; }
+  .sign-item { display:flex; align-items:flex-start; gap:8px; font-size:12.5px; }
+  .sign-tag { display:inline-flex; align-items:center; justify-content:center; width:18px; height:18px; border-radius:4px; font-size:12px; font-weight:900; flex-shrink:0; line-height:1; }
+  .sign-plus { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+  .sign-minus { background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; }
+  .report-block { background:#fffdf5; border:1px solid #fde68a; border-radius:8px; padding:10px 12px; margin-bottom:8px; }
+  .report-block strong.rb-title { display:block; color:#854d0e; font-size:13px; margin-bottom:4px; }
+  .col-chart-grid { display:flex; align-items:flex-end; justify-content:space-around; height:110px; gap:8px; }
+  .col-chart-col { flex:1; display:flex; flex-direction:column; align-items:center; justify-content:flex-end; height:100%; font-size:11px; }
+  .col-chart-val { font-weight:800; font-size:11px; margin-bottom:3px; }
+  .col-chart-bar-wrap { width:100%; max-width:24px; height:70px; display:flex; align-items:flex-end; background:#f4f4f5; border-radius:4px 4px 0 0; }
+  .col-chart-bar { width:100%; border-radius:4px 4px 0 0; }
+  .col-chart-lbl { font-weight:700; margin-top:4px; font-size:10.5px; }
+  .col-chart-pct { color:#52525b; font-size:9px; }
+  .col-chart-baseline { height:2px; background:#e4e4e7; width:100%; margin-top:2px; }
   table { width:100%; border-collapse:collapse; background:#ffffff; border:1px solid #e4e4e7; font-size:12.5px; }
-  th, td { border:1px solid #e4e4e7; padding:8px 10px; text-align:left; vertical-align:top; color:#111111; }
-  th { background:#fef9c3; color:#111111; font-weight:700; }
-  @media print { body { background:#fff; color:#111; } .hdr,.kpi,.brief,table { background:#fff; color:#111; border-color:#ccc; } th { background:#fef9c3; color:#111; } }
+  th, td { border:1px solid #e4e4e7; padding:9px 12px; text-align:left; vertical-align:top; color:#111111; }
+  th { background:#fef3c7; color:#111111; font-weight:800; white-space:nowrap !important; }
+  @media print { body { background:#fff; color:#111; } .hdr,.kpi,.brief,table { background:#fff; color:#111; border-color:#ccc; } th { background:#fef3c7; color:#111; } }
 </style>
 </head>
 <body>
@@ -1495,14 +1639,15 @@
     <div class="kpi"><div class="lbl">Không liên hệ lại</div><div class="val">${s.do_not_contact_count}</div></div>
   </div>
 
-  <h2>Biểu đồ Tỷ lệ Ưu tiên & Báo cáo Chi tiết</h2>
-  <div style="display:grid;grid-template-columns:1fr 1.3fr;gap:16px;margin-bottom:16px;">
-    <div class="kpi" style="display:flex;align-items:center;gap:16px;">${donutHtml}</div>
+  <h2>Các Biểu đồ Thống kê (Biểu đồ Tròn & Biểu đồ Cột) & Báo cáo Chi tiết</h2>
+  <div style="display:grid;grid-template-columns:1fr 1fr 1.3fr;gap:16px;margin-bottom:16px;">
+    <div class="kpi" style="display:flex;align-items:center;gap:14px;"><h3 style="margin:0 0 8px;font-size:13px;width:100%;">Tỷ lệ Ưu tiên</h3>${donutHtml}</div>
+    <div class="kpi"><h3 style="margin:0 0 8px;font-size:13px;">Phân bổ theo Khu vực</h3>${colChartHtml}</div>
     <div class="kpi">${detailedReportHtml}</div>
   </div>
 
   <h2>Tóm tắt Điều hành</h2>
-  <pre class="brief">${escapeHtml(out.executive_brief)}</pre>
+  <div class="brief">${briefFormattedHtml}</div>
 
   <h2>Phân công Đội ngũ 8 Nhân viên Kinh doanh</h2>
   <table>

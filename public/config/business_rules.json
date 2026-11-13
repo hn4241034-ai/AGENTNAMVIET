@@ -1,0 +1,219 @@
+{
+  "company": "Công ty Phần mềm Quản lý Nam Việt",
+  "version": "1.0.0",
+  "schema": {
+    "required_columns": [
+      "lead_id",
+      "company_name",
+      "contact_name",
+      "phone",
+      "email",
+      "industry",
+      "region",
+      "product_interest",
+      "need_description",
+      "budget_vnd",
+      "source_channel",
+      "registered_at"
+    ],
+    "column_aliases": {
+      "lead_id": ["id", "ma_ho_so", "ma_lead", "record_id"],
+      "company_name": ["ten_cong_ty", "doanh_nghiep", "company", "ten_doanh_nghiep"],
+      "tax_code": ["mst", "ma_so_thue", "tax_id"],
+      "contact_name": ["nguoi_lien_he", "ho_ten", "contact", "full_name"],
+      "phone": ["sdt", "so_dien_thoai", "dien_thuai", "tel", "mobile"],
+      "email": ["mail", "email_lien_he"],
+      "industry": ["nganh", "nhom_nganh", "linh_vuc", "nganh_nghe"],
+      "region": ["khu_vuc", "tinh_thanh", "dia_phuong", "mien"],
+      "product_interest": ["san_pham", "nhom_san_pham", "san_pham_quan_tam", "product"],
+      "need_description": ["nhu_cau", "mo_ta_nhu_cau", "noi_dung", "ghi_chu"],
+      "budget_vnd": ["ngan_sach", "budget", "ngan_sach_du_kien"],
+      "source_channel": ["nguon", "kenh", "kenh_nguon", "channel", "source"],
+      "registered_at": ["ngay_dang_ky", "thoi_gian", "created_at", "date"]
+    },
+    "valid_regions": ["Miền Bắc", "Miền Trung", "Miền Nam", "Hà Nội", "TP.HCM", "Đà Nẵng", "Bình Dương", "Cần Thơ", "Hải Phòng"],
+    "valid_channels": ["Hội thảo", "Website", "Campaign", "Facebook Ads", "Google Ads", "Giới thiệu", "Email Marketing"]
+  },
+  "deduplication_rules": {
+    "exact_match_keys": ["tax_code", "phone", "email"],
+    "fuzzy_company_similarity_threshold": 0.78,
+    "ambiguous_similarity_low": 0.62,
+    "ambiguous_similarity_high": 0.78,
+    "company_stop_words": [
+      "cong ty", "cty", "tnhh", "co phan", "cp", "mtv", "tm", "dv",
+      "thuong mai", "dich vu", "san xuat", "sx", "dau tu", "va", "tap doan",
+      "chi nhanh", "cn", "co., ltd", "co.,ltd", "ltd", "jsc", "corp"
+    ],
+    "known_aliases": {
+      "hoang ha": ["hh", "hoang ha corp", "cty hh"],
+      "minh phat": ["mp", "minh phat group", "mp logistics"],
+      "an khang": ["ak", "an khang med", "ak pharma"],
+      "tan tien": ["tt", "tan tien tech"],
+      "phuong dong": ["pd", "dong phuong", "pd retail"]
+    }
+  },
+  "priority_rules": {
+    "high_score_min": 75,
+    "medium_score_min": 45,
+    "vip_budget_threshold_vnd": 300000000,
+    "min_viable_budget_vnd": 20000000,
+    "weights": {
+      "product_fit": 40,
+      "need_clarity": 25,
+      "budget_fit": 20,
+      "urgency_and_channel": 15
+    },
+    "wrong_product_keywords": [
+      "thiet ke logo", "quay phim", "quang cao facebook", "in an bao bi",
+      "xay dung nha xuong", "van tai container", "phan mem thiet ke 3d",
+      "game mobile", "crypto", "bat dong san", "camera an ninh"
+    ],
+    "urgency_keywords": ["gap", "thang nay", "ngay", "tuan nay", "demo", "bao gia", "trien khai som"]
+  },
+  "assignment_rules": {
+    "high_priority_escalate_if_missing_staff": true,
+    "escalate_on_overload": true,
+    "vip_requires_manager_approval": true,
+    "conflict_requires_manager_approval": true
+  },
+  "products": [
+    {
+      "product_id": "NV-ERP",
+      "product_name": "NamViet ERP Core (Quản trị tổng thể SME)",
+      "category": "ERP",
+      "target_industries": ["Sản xuất", "Thương mại", "Phân phối", "Xây dựng nhẹ"],
+      "min_budget_vnd": 80000000,
+      "keywords": ["erp", "tong the", "ton kho", "san xuat", "ke toan", "mua hang", "kho bai", "quan tri doanh nghiep"]
+    },
+    {
+      "product_id": "NV-CRM",
+      "product_name": "NamViet CRM & Sales Pipeline",
+      "category": "CRM",
+      "target_industries": ["Bán lẻ", "Dịch vụ", "Giáo dục", "Bất động sản dịch vụ", "Thương mại"],
+      "min_budget_vnd": 25000000,
+      "keywords": ["crm", "khach hang", "cham soc khach", "sales", "lead", "ban hang", "telesales", "bao gia"]
+    },
+    {
+      "product_id": "NV-HRM",
+      "product_name": "NamViet HRM & Payroll",
+      "category": "HRM",
+      "target_industries": ["Sản xuất", "Dịch vụ", "Bán lẻ", "Logistics", "Y tế"],
+      "min_budget_vnd": 30000000,
+      "keywords": ["nhan su", "hrm", "cham cong", "tinh luong", "kpi", "ho so nhan vien", "ca lam viec"]
+    },
+    {
+      "product_id": "NV-POS",
+      "product_name": "NamViet POS & Kho Chuỗi Cửa Hàng",
+      "category": "POS",
+      "target_industries": ["Bán lẻ", "F&B", "Dược phẩm", "Thương mại"],
+      "min_budget_vnd": 20000000,
+      "keywords": ["pos", "ban le", "cua hang", "hoa don", "ma vach", "chi nhanh", "chuoi"]
+    }
+  ],
+  "sales_staff": [
+    {
+      "staff_id": "NV01",
+      "staff_name": "Nguyễn Minh Tuấn",
+      "assigned_industries": ["Sản xuất", "Xây dựng nhẹ"],
+      "assigned_regions": ["Miền Bắc", "Hà Nội", "Hải Phòng"],
+      "product_groups": ["NV-ERP", "NV-HRM"],
+      "current_load": 14,
+      "max_weekly_capacity": 20
+    },
+    {
+      "staff_id": "NV02",
+      "staff_name": "Trần Thị Lan Anh",
+      "assigned_industries": ["Thương mại", "Phân phối", "Bán lẻ", "Logistics"],
+      "assigned_regions": ["Miền Bắc", "Hà Nội", "Hải Phòng"],
+      "product_groups": ["NV-CRM", "NV-POS", "NV-ERP"],
+      "current_load": 18,
+      "max_weekly_capacity": 20
+    },
+    {
+      "staff_id": "NV03",
+      "staff_name": "Lê Hoàng Nam",
+      "assigned_industries": ["Dịch vụ", "Giáo dục", "Y tế"],
+      "assigned_regions": ["Miền Bắc", "Hà Nội"],
+      "product_groups": ["NV-CRM", "NV-HRM"],
+      "current_load": 10,
+      "max_weekly_capacity": 18
+    },
+    {
+      "staff_id": "NV04",
+      "staff_name": "Phạm Quốc Bảo",
+      "assigned_industries": ["Sản xuất", "Logistics", "Thương mại"],
+      "assigned_regions": ["Miền Trung", "Đà Nẵng"],
+      "product_groups": ["NV-ERP", "NV-HRM", "NV-CRM"],
+      "current_load": 12,
+      "max_weekly_capacity": 18
+    },
+    {
+      "staff_id": "NV05",
+      "staff_name": "Võ Thảo Vy",
+      "assigned_industries": ["Bán lẻ", "F&B", "Dược phẩm", "Dịch vụ"],
+      "assigned_regions": ["Miền Trung", "Đà Nẵng"],
+      "product_groups": ["NV-POS", "NV-CRM"],
+      "current_load": 9,
+      "max_weekly_capacity": 18
+    },
+    {
+      "staff_id": "NV06",
+      "staff_name": "Đặng Hữu Phước",
+      "assigned_industries": ["Sản xuất", "Phân phối", "Logistics"],
+      "assigned_regions": ["Miền Nam", "TP.HCM", "Bình Dương"],
+      "product_groups": ["NV-ERP", "NV-HRM"],
+      "current_load": 19,
+      "max_weekly_capacity": 20
+    },
+    {
+      "staff_id": "NV07",
+      "staff_name": "Huỳnh Ngọc Mai",
+      "assigned_industries": ["Thương mại", "Bán lẻ", "F&B", "Dược phẩm"],
+      "assigned_regions": ["Miền Nam", "TP.HCM", "Bình Dương", "Cần Thơ"],
+      "product_groups": ["NV-POS", "NV-CRM", "NV-ERP"],
+      "current_load": 15,
+      "max_weekly_capacity": 22
+    },
+    {
+      "staff_id": "NV08",
+      "staff_name": "Bùi Anh Khoa",
+      "assigned_industries": ["Dịch vụ", "Giáo dục", "Y tế", "Bất động sản dịch vụ"],
+      "assigned_regions": ["Miền Nam", "TP.HCM", "Cần Thơ"],
+      "product_groups": ["NV-CRM", "NV-HRM"],
+      "current_load": 11,
+      "max_weekly_capacity": 20
+    }
+  ],
+  "contact_history": [
+    {
+      "company_name": "Công ty TNHH Thương mại Thái Bình Dương",
+      "tax_code": "0312998877",
+      "phone": "0909112233",
+      "email": "contact@thaibinhduong.vn",
+      "last_contact_date": "2026-10-28",
+      "outcome": "do_not_contact",
+      "note": "Khách yêu cầu ngừng gọi tiếp thị (Opt-out), đã ký với đối thủ.",
+      "previous_salesperson": "NV07"
+    },
+    {
+      "company_name": "Công ty Cổ phần Logistics Đông Nam",
+      "tax_code": "0105566778",
+      "phone": "0912345678",
+      "email": "ops@dongnamlog.vn",
+      "last_contact_date": "2026-11-02",
+      "outcome": "active",
+      "note": "Đang trao đổi demo phân hệ kho với Đặng Hữu Phước.",
+      "previous_salesperson": "NV06"
+    },
+    {
+      "company_name": "Chuỗi Nhà thuốc An Tâm",
+      "tax_code": "0309988112",
+      "phone": "0988776655",
+      "email": "muahang@antampharma.vn",
+      "last_contact_date": "2026-09-15",
+      "outcome": "rejected_spam",
+      "note": "Số điện thoại giả / từ chối hợp tác vĩnh viễn.",
+      "previous_salesperson": "NV05"
+    }
+  ]
+}

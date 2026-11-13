@@ -148,7 +148,8 @@ window.NamVietAgent = (() => {
       `- Số khách ngừng liên hệ: ${summaryStats.do_not_contact_count}\n` +
       `Các ca nổi bật cần lưu ý: ${JSON.stringify(edgeCases.slice(0, 6))}\n` +
       feedbackNote + `\n` +
-      `Hãy viết một đoạn tóm tắt điều hành (Executive Brief) ngắn gọn bằng tiếng Việt (4–5 gạch đầu dòng súc tích, chỉ rõ việc cần làm ngay cho Trưởng phòng Kinh doanh).`;
+      `Hãy viết một đoạn tóm tắt điều hành (Executive Brief) ngắn gọn bằng tiếng Việt (4–5 dòng súc tích, chỉ rõ việc cần làm ngay cho Trưởng phòng Kinh doanh).\n` +
+      `QUY TẮC BẮT BUỘC ĐỊNH DẠNG: Tuyệt đối không dùng dấu chấm tròn (•). Đầu mỗi câu BẮT BUỘC phải dùng ký tự "+" (cho các kết quả tích cực, đã xử lý xong) hoặc ký tự "-" (cho cảnh báo, ca tranh chấp hoặc việc cần Trưởng phòng quyết định).`;
 
     return await callLLM({
       messages: [
@@ -432,11 +433,11 @@ window.NamVietAgent = (() => {
     const wrongProdCount = customers.filter(c => c.is_wrong_product).length;
     const incompleteCount = customers.filter(c => !c.is_do_not_contact && c.missing_fields.length > 0).length;
     return [
-      `• Đã tiếp nhận ${s.total_raw_records} hồ sơ gốc và gộp trùng thành ${s.unique_customers} khách hàng duy nhất (loại bỏ ${s.duplicates_merged} bản ghi trùng lặp giữa các kênh/tên viết tắt).`,
-      `• Phân bổ ưu tiên (không đếm lặp): ${s.by_priority["Cao"]} Cao, ${s.by_priority["Trung bình"]} Trung bình, ${s.by_priority["Thấp"]} Thấp, và ${s.do_not_contact_count} khách bị chặn theo lịch sử (Không liên hệ lại).`,
-      `• Có ${s.manager_decision_count} trường hợp cần Trưởng phòng Kinh doanh quyết định (trùng tên mơ hồ, vượt ngưỡng VIP, tranh chấp người phụ trách cũ hoặc NVKD quá tải tuần).`,
-      `• Phát hiện ${s.unassigned_count} khách chưa có NVKD khớp khu vực/ngành và ${wrongProdCount} hồ sơ sai sản phẩm (đã hạ ưu tiên dù ngân sách lớn).`,
-      `• ${incompleteCount} khách thiếu thông tin ban đầu đã được tạo sẵn bản nháp câu hỏi bổ sung để NVKD không bỏ sót cơ hội.`
+      `+ Đã tiếp nhận ${s.total_raw_records} hồ sơ gốc và gộp trùng thành ${s.unique_customers} khách hàng duy nhất (loại bỏ ${s.duplicates_merged} bản ghi trùng lặp giữa các kênh/tên viết tắt).`,
+      `+ Phân bổ ưu tiên (không đếm lặp): ${s.by_priority["Cao"]} Cao, ${s.by_priority["Trung bình"]} Trung bình, ${s.by_priority["Thấp"]} Thấp, và ${s.do_not_contact_count} khách bị chặn theo lịch sử (Không liên hệ lại).`,
+      `- Có ${s.manager_decision_count} trường hợp cần Trưởng phòng Kinh doanh quyết định (trùng tên mơ hồ, vượt ngưỡng VIP, tranh chấp người phụ trách cũ hoặc NVKD quá tải tuần).`,
+      `- Phát hiện ${s.unassigned_count} khách chưa có NVKD khớp khu vực/ngành và ${wrongProdCount} hồ sơ sai sản phẩm (đã hạ ưu tiên dù ngân sách lớn).`,
+      `+ Đã tạo sẵn bản nháp tiếp cận / bộ câu hỏi bổ sung cho ${incompleteCount} khách hàng thiếu thông tin ban đầu để NVKD không bỏ sót cơ hội.`
     ].join("\n");
   }
 

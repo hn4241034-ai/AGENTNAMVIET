@@ -1,0 +1,4 @@
+lead_id,company_name,tax_code,contact_name,phone,email,industry,region,product_interest,need_description,budget_vnd,source_channel,registered_at
+L101,Công ty TNHH Sao Việt,0109988776,Nguyễn Văn Hùng,0912345678,hung@saoviet.vn,Sản xuất,Hà Nội,NV-ERP,Cần phần mềm quản trị kho và kế toán,khoảng 80 triệu,Website,2026-11-10
+L102,,0301122334,Trần Thị Mai,12345,mai-sai-email,Bán lẻ,TP.HCM,NV-POS,Quản lý cửa hàng tiện lợi,-5000000,Hội thảo,32/13/2026
+L101,Công ty Cổ phần Đại Dương,0305544332,,0987654321,info@daiduong.vn,Thương mại,Đà Nẵng,NV-CRM,Tư vấn phần mềm chăm sóc khách hàng,45000000,,2026-11-10

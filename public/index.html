@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Nam Việt AI Agent | Điều phối Khách hàng B2B</title>
-  <link rel="stylesheet" href="/styles.css" />
+  <link rel="stylesheet" href="styles.css" />
 </head>
 <body>
   <!-- Live Interactive Animated Mesh Background -->
@@ -23,7 +23,8 @@
     <nav class="top-nav">
       <button class="nav-link active" id="navLandingBtn" type="button">1. Giới thiệu</button>
       <button class="nav-link" id="navWorkflowBtn" type="button">2. Quy trình</button>
-      <button class="nav-link" id="navWorkspaceBtn" type="button">3. Nhập Dữ liệu</button>
+      <button class="nav-link" id="navWorkspaceBtn" type="button">3. Xử lý Dữ liệu</button>
+      <button class="nav-link" id="navDashboardBtn" type="button">4. Báo cáo & Dashboard</button>
     </nav>
 
     <div class="topbar-actions">
@@ -84,8 +85,8 @@
         <div class="hero-bottom-row">
           <div class="hero-left-col">
             <div class="cta-pill-group">
-              <button id="btnHeroStart" class="cta-pill-btn" type="button">
-                <span class="cta-white">BẮT ĐẦU NGAY</span>
+              <button id="btnHeroStart" class="cta-pill-btn" type="button" title="Bắt đầu nhập dữ liệu và xử lý">
+                <span class="cta-white">BẮT ĐẦU</span>
                 <span class="cta-yellow-circle">↗</span>
               </button>
             </div>
@@ -559,18 +560,38 @@
           <div id="feedbackHistoryText" class="hint mt-1"></div>
         </div>
       </section>
+    </main>
+  </div>
+
+  <!-- ===================================================================== -->
+  <!-- PAGE 4: DASHBOARD & BÁO CÁO (TRANG RIÊNG BIỆT KHI CÓ KẾT QUẢ)         -->
+  <!-- ===================================================================== -->
+  <div id="dashboardView" class="page-view hidden">
+    <main class="container dashboard-container">
+      <div class="dashboard-header-bar flex-between mb-2">
+        <div class="dash-title-group">
+          <div class="dash-badge-row">
+            <span class="pill pill-yellow"><span class="pulse-beacon"></span> TRANG 4 · BÁO CÁO & DASHBOARD</span>
+            <span id="runMetaText" class="hint" style="margin:0;"></span>
+          </div>
+          <h2 class="dash-main-heading">Trung tâm Điều phối & Phân tích Kết quả</h2>
+        </div>
+        <div class="btn-group">
+          <button id="btnBackToWorkspace" class="btn btn-outline btn-sm" type="button">← Quay lại Xử lý Dữ liệu</button>
+          <button id="btnFinalizeAndExportHTML" class="btn btn-neon" type="button">Chốt kết quả & Xuất file HTML ✓</button>
+        </div>
+      </div>
 
       <!-- BƯỚC 6: LẬP BÁO CÁO, DASHBOARD -> CHỐT KẾT QUẢ -> XUẤT HTML -->
-      <section id="resultsSection" class="panel hidden">
+      <section id="resultsSection" class="panel dashboard-full-panel">
         <div id="finalizeBar" class="finalize-bar">
           <div>
-            <strong>6. Lập Báo cáo & Dashboard</strong>
-            <div id="runMetaText" class="hint"></div>
+            <strong>Trạng thái Rà soát & Phê duyệt</strong>
+            <small class="hint" style="display:block;">Kiểm tra các chỉ số, biểu đồ và danh sách phân công trước khi chốt kết quả.</small>
           </div>
           <div class="btn-group">
             <span id="finalizeStatusPill" class="pill pill-amber">Chưa chốt kết quả</span>
             <button id="btnUnfinalize" class="btn btn-outline btn-sm hidden" type="button">Mở lại rà soát</button>
-            <button id="btnFinalizeAndExportHTML" class="btn btn-neon" type="button">Chốt kết quả & Xuất file HTML ✓</button>
           </div>
         </div>
 
@@ -599,26 +620,53 @@
         <div id="tabOverview" class="tab-content active mt-2">
           <div id="kpiGrid" class="kpi-grid"></div>
 
-          <!-- Visual Charts Grid -->
-          <div class="charts-grid-3 mt-2">
-            <div class="subpanel">
-              <h3>Biểu đồ Tỷ lệ Ưu tiên</h3>
-              <div id="priorityDonutChart" class="donut-wrap"></div>
+          <!-- Visual Charts Grid: 4-Card Balanced Full-Fill Grid (Tròn - Cột đứng - Thanh SP - Thanh Trạng thái) -->
+          <div class="charts-grid-4 mt-2">
+            <div class="subpanel chart-card interactive-panel">
+              <div class="flex-between chart-header">
+                <h3><span class="star-yellow">✳</span> Biểu đồ Tròn · Tỷ lệ Ưu tiên</h3>
+                <span class="pill pill-yellow">Tròn</span>
+              </div>
+              <div class="chart-inner-box">
+                <div id="priorityDonutChart" class="donut-wrap"></div>
+              </div>
             </div>
-            <div class="subpanel">
-              <h3>Phân bổ theo Nhóm Sản phẩm</h3>
-              <div id="productBarsChart" class="bars-container"></div>
+
+            <div class="subpanel chart-card interactive-panel">
+              <div class="flex-between chart-header">
+                <h3><span class="star-yellow">✳</span> Biểu đồ Cột · Phân bổ Khu vực</h3>
+                <span class="pill pill-yellow">Cột đứng</span>
+              </div>
+              <div class="chart-inner-box">
+                <div id="regionColumnChart" class="col-chart-container"></div>
+              </div>
             </div>
-            <div class="subpanel">
-              <h3>Trạng thái Điều phối</h3>
-              <div id="statusBarsChart" class="bars-container"></div>
+
+            <div class="subpanel chart-card interactive-panel">
+              <div class="flex-between chart-header">
+                <h3><span class="star-yellow">✳</span> Biểu đồ Thanh · Nhóm Sản phẩm</h3>
+                <span class="pill pill-yellow">Thanh ngang</span>
+              </div>
+              <div class="chart-inner-box">
+                <div id="productBarsChart" class="bars-container"></div>
+              </div>
+            </div>
+
+            <div class="subpanel chart-card interactive-panel">
+              <div class="flex-between chart-header">
+                <h3><span class="star-yellow">✳</span> Biểu đồ Thanh · Trạng thái Điều phối</h3>
+                <span class="pill pill-yellow">Thanh ngang</span>
+              </div>
+              <div class="chart-inner-box">
+                <div id="statusBarsChart" class="bars-container"></div>
+              </div>
             </div>
           </div>
 
           <!-- Staff Load Visual Chart -->
-          <div class="subpanel mt-2">
+          <div class="subpanel chart-card interactive-panel mt-2">
             <div class="flex-between">
-              <h3>Biểu đồ Tải Công việc 8 NVKD (Hiện có / Giao mới / Chờ duyệt)</h3>
+              <h3><span class="star-yellow">✳</span> Biểu đồ Thanh Ngang Xếp chồng · Tải 8 NVKD (Hiện có / Giao mới / Chờ duyệt)</h3>
               <div class="legend-inline">
                 <span><i class="lg-dot" style="background:#52525b"></i>Hiện có</span>
                 <span><i class="lg-dot" style="background:#34d399"></i>Giao mới</span>
@@ -630,13 +678,16 @@
 
           <!-- Detailed Business Report & Executive Brief -->
           <div class="two-col mt-2">
-            <div class="subpanel">
-              <h3>Báo cáo Chi tiết Kinh doanh</h3>
+            <div class="subpanel interactive-panel">
+              <h3><span class="star-yellow">✳</span> Báo cáo Chi tiết Kinh doanh</h3>
               <div id="detailedReportBox" class="detailed-report-box"></div>
             </div>
-            <div class="subpanel">
-              <h3>Tóm tắt Điều hành (AI Brief)</h3>
-              <pre id="executiveBriefBox" class="brief-box"></pre>
+            <div class="subpanel interactive-panel">
+              <div class="flex-between">
+                <h3><span class="star-yellow">✳</span> Tóm tắt Điều hành (AI Brief)</h3>
+                <span class="pill pill-green"><span class="pulse-beacon"></span> Live Sync</span>
+              </div>
+              <div id="executiveBriefBox" class="brief-box"></div>
             </div>
           </div>
 
@@ -777,10 +828,10 @@
     </div>
   </div>
 
-  <script src="/js/validator.js"></script>
-  <script src="/js/skills.js"></script>
-  <script src="/js/agent_engine.js"></script>
-  <script src="/js/live_ui.js"></script>
-  <script src="/js/app.js"></script>
+  <script src="js/validator.js"></script>
+  <script src="js/skills.js"></script>
+  <script src="js/agent_engine.js"></script>
+  <script src="js/live_ui.js"></script>
+  <script src="js/app.js"></script>
 </body>
 </html>

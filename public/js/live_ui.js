@@ -99,11 +99,11 @@
     function tick() {
       ctx.clearRect(0, 0, width, height);
 
-      // Subtle mouse radial glow (warm golden-yellow on bright white)
+      // Subtle mouse radial glow (gentle warm honey tone on crisp white)
       if (mouse.active) {
-        const grad = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, 260);
-        grad.addColorStop(0, "rgba(250, 204, 21, 0.22)");
-        grad.addColorStop(0.55, "rgba(250, 204, 21, 0.06)");
+        const grad = ctx.createRadialGradient(mouse.x, mouse.y, 0, mouse.x, mouse.y, 240);
+        grad.addColorStop(0, "rgba(245, 158, 11, 0.08)");
+        grad.addColorStop(0.55, "rgba(245, 158, 11, 0.02)");
         grad.addColorStop(1, "rgba(255, 255, 255, 0)");
         ctx.fillStyle = grad;
         ctx.fillRect(0, 0, width, height);
@@ -131,9 +131,9 @@
           const m = nodes[j];
           const d = Math.hypot(n.x - m.x, n.y - m.y);
           if (d < 135) {
-            const alpha = (1 - d / 135) * (n.accent || m.accent ? 0.34 : 0.14);
+            const alpha = (1 - d / 135) * (n.accent || m.accent ? 0.26 : 0.12);
             ctx.strokeStyle = (n.accent || m.accent)
-              ? `rgba(234, 179, 8, ${alpha.toFixed(3)})`
+              ? `rgba(217, 119, 6, ${(alpha * 0.75).toFixed(3)})`
               : `rgba(17, 17, 17, ${alpha.toFixed(3)})`;
             ctx.lineWidth = 0.85;
             ctx.beginPath();
@@ -146,9 +146,9 @@
         if (mouse.active) {
           const dm = Math.hypot(mouse.x - n.x, mouse.y - n.y);
           if (dm < 175) {
-            const alpha = (1 - dm / 175) * 0.48;
-            ctx.strokeStyle = `rgba(234, 179, 8, ${alpha.toFixed(3)})`;
-            ctx.lineWidth = 1.1;
+            const alpha = (1 - dm / 175) * 0.35;
+            ctx.strokeStyle = `rgba(217, 119, 6, ${alpha.toFixed(3)})`;
+            ctx.lineWidth = 1.0;
             ctx.beginPath();
             ctx.moveTo(n.x, n.y);
             ctx.lineTo(mouse.x, mouse.y);
@@ -156,7 +156,7 @@
           }
         }
 
-        ctx.fillStyle = n.accent ? "rgba(234, 179, 8, 0.85)" : "rgba(17, 17, 17, 0.25)";
+        ctx.fillStyle = n.accent ? "rgba(217, 119, 6, 0.55)" : "rgba(17, 17, 17, 0.22)";
         ctx.beginPath();
         ctx.arc(n.x, n.y, n.r, 0, Math.PI * 2);
         ctx.fill();
@@ -167,8 +167,8 @@
         const rp = ripples[i];
         rp.r += 3.2;
         rp.alpha *= 0.94;
-        ctx.strokeStyle = `rgba(234, 179, 8, ${rp.alpha.toFixed(3)})`;
-        ctx.lineWidth = 1.4;
+        ctx.strokeStyle = `rgba(217, 119, 6, ${(rp.alpha * 0.6).toFixed(3)})`;
+        ctx.lineWidth = 1.2;
         ctx.beginPath();
         ctx.arc(rp.x, rp.y, rp.r, 0, Math.PI * 2);
         ctx.stroke();
@@ -231,9 +231,22 @@
     });
   }
 
+  function initPage3LiveHover() {
+    document.addEventListener("mousemove", (e) => {
+      const target = e.target.closest(".interactive-panel, .kpi-card, .chart-card, .report-block, .staff-chart-row");
+      if (!target) return;
+      const rect = target.getBoundingClientRect();
+      const x = e.clientX - rect.left;
+      const y = e.clientY - rect.top;
+      target.style.setProperty("--item-mx", `${x}px`);
+      target.style.setProperty("--item-my", `${y}px`);
+    });
+  }
+
   document.addEventListener("DOMContentLoaded", () => {
     initLiveCanvas();
     initLandingInteractions();
+    initPage3LiveHover();
   });
 })();
 
