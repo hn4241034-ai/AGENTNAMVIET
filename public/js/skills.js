@@ -622,7 +622,7 @@ window.NamVietSkills = (() => {
   }
 
   // SKILL 5: Deduplicated Summary Statistics & Business Task Lists
-  function toolCompileReportsAndStats(customers, staffPool) {
+  function toolCompileReportsAndStats(customers, staffPool, rawLeads = []) {
     const byPriority = {
       "Cao": 0,
       "Trung bình": 0,
@@ -651,7 +651,11 @@ window.NamVietSkills = (() => {
         new_assigned_confirmed: confirmedCount,
         pending_manager_approval: pendingReviewCount,
         total_projected_load: s.current_load + confirmedCount,
-        max_weekly_capacity: s.max_weekly_capacity
+        max_weekly_capacity: s.max_weekly_capacity,
+        // Priority breakdown per staff
+        priority_high: assignedList.filter(c => c.priority_level === "Cao").length,
+        priority_medium: assignedList.filter(c => c.priority_level === "Trung bình").length,
+        priority_low: assignedList.filter(c => c.priority_level === "Thấp").length
       };
     });
 
@@ -661,16 +665,79 @@ window.NamVietSkills = (() => {
     const doNotContactList = customers.filter(c => c.is_do_not_contact);
     const managerDecisionList = customers.filter(c => c.needs_manager_decision);
     const salesActionList = customers.filter(c => !c.is_do_not_contact);
+    const assignedCallList = customers.filter(c => c.assignment_status === "assigned");
+    const totalRawRecords = customers.reduce((acc, c) => acc + c.duplicate_count, 0);
+
+    // 1. Lead Funnel Data (Phễu hao hụt)
+    const productFitCount = customers.filter(c => !c.is_wrong_product).length;
+    const funnelData = [
+      { stage: "1. Bản ghi đầu vào", count: totalRawRecords, pct: 100, color: "#52525b" },
+      { stage: "2. Khách sau gộp trùng", count: customers.length, pct: Math.round((customers.length / Math.max(1, totalRawRecords)) * 100), color: "#0d9488" },
+      { stage: "3. Khớp SP Nam Việt", count: productFitCount, pct: Math.round((productFitCount / Math.max(1, totalRawRecords)) * 100), color: "#0f766e" },
+      { stage: "4. Danh sách gọi NVKD", count: assignedCallList.length, pct: Math.round((assignedCallList.length / Math.max(1, totalRawRecords)) * 100), color: "#16a34a" }
+    ];
+
+    // 2. Exception Breakdown (Lý do vào hàng đợi người duyệt)
+    let ambigDups = 0, vipBudget = 0, dispute = 0, overload = 0;
+    for (const c of managerDecisionList) {
+      const txt = (c.escalation_reasons || []).join(" ");
+      if (/nghi ngo|trung/i.test(txt)) ambigDups++;
+      if (/vip|ngan sach lon/i.test(txt)) vipBudget++;
+      if (/tranh chap|nhieu hon/i.test(txt)) dispute++;
+      if (/qua tai|dinh muc/i.test(txt)) overload++;
+    }
+    const exceptionBreakdown = [
+      { reason: "Trùng mơ hồ (Ca xám 0.62–0.78)", count: ambigDups, color: "#8b5cf6" },
+      { reason: "Ngân sách VIP (>300M)", count: vipBudget, color: "#f59e0b" },
+      { reason: "Tranh chấp phạm vi (≥2 NVKD)", count: dispute, color: "#ef4444" },
+      { reason: "Chưa có NVKD phù hợp", count: unassignedList.length, color: "#ec4899" },
+      { reason: "Vượt định mức tải tuần", count: overload, color: "#64748b" }
+    ];
+
+    // 3. Missing Data Heatmap by Channel x Column
+    const rawItems = rawLeads.length > 0 ? rawLeads : customers.flatMap(c => c.source_records || []);
+    const channels = [...new Set(rawItems.map(r => r.source_channel || "Khác"))];
+    const checkFields = ["budget_vnd", "need_description", "phone", "email", "industry"];
+    const fieldLabels = {
+      budget_vnd: "Ngân sách",
+      need_description: "Nhu cầu",
+      phone: "SĐT",
+      email: "Email",
+      industry: "Ngành"
+    };
+    const heatmapMatrix = channels.map(ch => {
+      const inCh = rawItems.filter(r => (r.source_channel || "Khác") === ch);
+      const totalInCh = Math.max(1, inCh.length);
+      const rates = {};
+      for (const f of checkFields) {
+        const miss = inCh.filter(r => !String(r[f] ?? "").trim()).length;
+        rates[f] = {
+          missing: miss,
+          total: totalInCh,
+          pct: Math.round((miss / totalInCh) * 100)
+        };
+      }
+      return { channel: ch, total: totalInCh, rates };
+    });
 
     return {
       summary: {
-        total_raw_records: customers.reduce((acc, c) => acc + c.duplicate_count, 0),
+        total_raw_records: totalRawRecords,
         unique_customers: customers.length,
         duplicates_merged: customers.reduce((acc, c) => acc + (c.duplicate_count - 1), 0),
         by_priority: byPriority,
         unassigned_count: unassignedList.length,
         do_not_contact_count: doNotContactList.length,
-        manager_decision_count: managerDecisionList.length
+        manager_decision_count: managerDecisionList.length,
+        funnel_data: funnelData,
+        exception_breakdown: exceptionBreakdown,
+        heatmap_matrix: heatmapMatrix,
+        field_labels: fieldLabels,
+        double_entry_balance: {
+          sum_priority: Object.values(byPriority).reduce((a, b) => a + b, 0),
+          total_customers: customers.length,
+          is_balanced: Object.values(byPriority).reduce((a, b) => a + b, 0) === customers.length
+        }
       },
       by_staff: byStaff,
       lists: {
@@ -683,9 +750,19 @@ window.NamVietSkills = (() => {
   }
 
   // SKILL 0: Clean & Standardize Validated Dataset
-  function toolCleanDataset(rows, config, mode = "standard") {
+  function toolCleanDataset(rows, config, mode = "standard", options = {}) {
     const cleanLog = [];
     let normalizedCells = 0;
+    let trimmedCellsCount = 0;
+    let emptyRowsRemovedCount = 0;
+    let duplicateRowsRemovedCount = 0;
+    let missingRowsRemovedCount = 0;
+    const sourceRowsCount = (rows || []).length;
+
+    const trimWhitespace = options.trimWhitespace !== false;
+    const removeEmptyRows = options.removeEmptyRows !== false;
+    const removeDuplicates = options.removeDuplicates !== false;
+    const dropMissingRows = options.dropMissingRows === true;
 
     const regionMap = {
       "hcm": "TP.HCM",
@@ -715,19 +792,53 @@ window.NamVietSkills = (() => {
       "nv pos": "NV-POS"
     };
 
-    const cleanedRows = (rows || []).map((raw) => {
+    const seenSignatures = new Set();
+    const intermediateRows = [];
+
+    for (const raw of (rows || [])) {
       const r = { ...raw };
       const fields = Object.keys(r).filter(k => k !== "__rowNumber");
 
+      // 1. Check empty row
+      const isAllEmpty = fields.every(f => !String(r[f] ?? "").trim());
+      if (removeEmptyRows && isAllEmpty) {
+        emptyRowsRemovedCount++;
+        continue;
+      }
+
+      // 2. Check trim whitespace
       for (const f of fields) {
         const orig = String(r[f] ?? "");
-        const trimmed = orig.replace(/\s+/g, " ").trim();
-        if (trimmed !== orig) {
-          r[f] = trimmed;
-          normalizedCells++;
+        if (trimWhitespace) {
+          const trimmed = orig.replace(/\s+/g, " ").trim();
+          if (trimmed !== orig) {
+            r[f] = trimmed;
+            trimmedCellsCount++;
+            normalizedCells++;
+          }
         }
       }
 
+      // 3. Check duplicate row
+      const sig = fields.map(f => String(r[f] ?? "").trim().toLowerCase()).join("|");
+      if (removeDuplicates) {
+        if (seenSignatures.has(sig)) {
+          duplicateRowsRemovedCount++;
+          continue;
+        }
+        seenSignatures.add(sig);
+      }
+
+      // 4. Check drop missing rows (any empty field)
+      if (dropMissingRows) {
+        const hasMissing = fields.some(f => !String(r[f] ?? "").trim());
+        if (hasMissing) {
+          missingRowsRemovedCount++;
+          continue;
+        }
+      }
+
+      // Standardize known CRM fields if present
       if (r.phone) {
         const np = normalizePhone(r.phone);
         if (np !== r.phone) {
@@ -770,6 +881,7 @@ window.NamVietSkills = (() => {
           normalizedCells++;
         }
       }
+
       if (mode === "deep") {
         if (!r.industry && r.need_description) {
           const nd = normalizeText(r.need_description);
@@ -785,27 +897,57 @@ window.NamVietSkills = (() => {
         }
       }
 
-      return r;
-    });
+      intermediateRows.push(r);
+    }
+
+    const cleanedRows = intermediateRows;
+    const removedRowsCount = emptyRowsRemovedCount + duplicateRowsRemovedCount + missingRowsRemovedCount;
+
+    // Count remaining empty cells
+    let remainingEmptyCellsCount = 0;
+    for (const r of cleanedRows) {
+      const fields = Object.keys(r).filter(k => k !== "__rowNumber");
+      for (const f of fields) {
+        if (!String(r[f] ?? "").trim()) {
+          remainingEmptyCellsCount++;
+        }
+      }
+    }
 
     const warnings = [];
     let missingContactCount = 0;
     let missingNeedCount = 0;
     for (const r of cleanedRows) {
-      if (!r.phone && !r.email) missingContactCount++;
-      if (!r.need_description || r.need_description.length < 5) missingNeedCount++;
+      if (r.phone !== undefined || r.email !== undefined) {
+        if (!r.phone && !r.email) missingContactCount++;
+      }
+      if (r.need_description !== undefined) {
+        if (!r.need_description || r.need_description.length < 5) missingNeedCount++;
+      }
     }
     if (missingContactCount > 0) warnings.push(`${missingContactCount} hồ sơ thiếu cả SĐT và Email`);
     if (missingNeedCount > 0) warnings.push(`${missingNeedCount} hồ sơ mô tả nhu cầu quá ngắn/trống`);
 
-    if (normalizedCells > 0) cleanLog.push(`Đã chuẩn hóa ${normalizedCells} giá trị (SĐT, Email, Ngày, Khu vực, Sản phẩm, Khoảng trắng).`);
-    else cleanLog.push("Dữ liệu đã chuẩn, không phát hiện ký tự thừa hay định dạng lệch.");
+    if (emptyRowsRemovedCount > 0) cleanLog.push(`Đã xóa ${emptyRowsRemovedCount} dòng hoàn toàn trống.`);
+    if (duplicateRowsRemovedCount > 0) cleanLog.push(`Đã xóa ${duplicateRowsRemovedCount} dòng trùng lặp nội dung.`);
+    if (missingRowsRemovedCount > 0) cleanLog.push(`Đã loại bỏ ${missingRowsRemovedCount} dòng thiếu dữ liệu theo quy tắc.`);
+    if (trimmedCellsCount > 0) cleanLog.push(`Đã cắt khoảng trắng thừa ở ${trimmedCellsCount} ô dữ liệu.`);
+    if (normalizedCells > 0) cleanLog.push(`Đã chuẩn hóa định dạng ở ${normalizedCells} ô.`);
+    if (cleanLog.length === 0) cleanLog.push("Dữ liệu đã chuẩn, không phát hiện ô hay dòng cần làm sạch thêm.");
 
     const isStable = cleanedRows.length > 0;
     return {
       cleanedRows,
       stats: {
         totalRows: cleanedRows.length,
+        sourceRowsCount,
+        cleanedRowsCount: cleanedRows.length,
+        removedRowsCount,
+        emptyRowsRemovedCount,
+        duplicateRowsRemovedCount,
+        missingRowsRemovedCount,
+        trimmedCellsCount,
+        remainingEmptyCellsCount,
         normalizedCells,
         missingContactCount,
         missingNeedCount,

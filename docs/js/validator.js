@@ -66,6 +66,16 @@ window.NamVietValidator = (() => {
     return rows.filter(r => r.some(cell => String(cell).trim() !== ""));
   }
 
+  function computeFastHash(str) {
+    if (!str) return "00000000";
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < str.length; i++) {
+      hash ^= str.charCodeAt(i);
+      hash = (hash * 0x01000193) >>> 0;
+    }
+    return ("00000000" + hash.toString(16)).slice(-8).toUpperCase();
+  }
+
   function matrixToObjects(matrix, schemaConfig) {
     if (!matrix || matrix.length < 2) {
       return { headers: [], rows: [], missingHeaders: schemaConfig.required_columns || [] };
@@ -90,6 +100,12 @@ window.NamVietValidator = (() => {
     });
 
     const rows = [];
+    const colMissingStats = {};
+    for (const h of mappedHeaders) colMissingStats[h] = 0;
+    let missingContactCount = 0;
+    let freeEmailCount = 0;
+    const quarantineRows = [];
+
     for (let r = 1; r < matrix.length; r++) {
       const line = matrix[r];
       if (!line || line.every(c => String(c || "").trim() === "")) continue;
@@ -99,14 +115,53 @@ window.NamVietValidator = (() => {
         if (!key) continue;
         let val = line[c] !== undefined && line[c] !== null ? String(line[c]).trim() : "";
         obj[key] = val;
+        if (!val) colMissingStats[key]++;
       }
+
+      // Check contact channels & free email
+      const hasPhone = Boolean(String(obj.phone || "").trim());
+      const hasEmail = Boolean(String(obj.email || "").trim());
+      if (!hasPhone && !hasEmail && obj.lead_id) {
+        missingContactCount++;
+        quarantineRows.push(obj);
+        obj.__quarantined = true;
+      }
+      if (obj.email && /@(gmail|yahoo|hotmail|outlook)\.com/i.test(obj.email)) {
+        obj.is_free_email = true;
+        freeEmailCount++;
+      }
+
       rows.push(obj);
     }
 
     const presentSet = new Set(mappedHeaders);
-    const missingHeaders = (schemaConfig.required_columns || []).filter(col => !presentSet.has(col));
+    const isRetailDataset = mappedHeaders.some(h => /thang|doanh_thu|chi_phi|loi_nhuan|kenh|san_pham|so_don|chien_dich/i.test(h)) && !presentSet.has("lead_id");
+    const missingHeaders = isRetailDataset
+      ? []
+      : (schemaConfig.required_columns || []).filter(col => !presentSet.has(col));
 
-    return { headers: mappedHeaders, rawHeaders, rows, missingHeaders };
+    const totalCells = Math.max(1, rows.length * mappedHeaders.length);
+    const totalMissingCells = Object.values(colMissingStats).reduce((a, b) => a + b, 0);
+    const healthScore = Math.max(0, Math.min(100, Math.round(100 - (totalMissingCells / totalCells) * 100)));
+    const fileHash = computeFastHash(JSON.stringify(matrix));
+
+    return {
+      headers: mappedHeaders,
+      rawHeaders,
+      rows,
+      missingHeaders,
+      isRetailDataset,
+      fileHash,
+      dataQualityProfile: {
+        healthScore,
+        totalMissingCells,
+        colMissingStats,
+        missingContactCount,
+        freeEmailCount,
+        quarantineCount: quarantineRows.length,
+        quarantineRows
+      }
+    };
   }
 
   function isValidDateString(val) {
@@ -170,9 +225,35 @@ window.NamVietValidator = (() => {
         lead_id: "(Empty)",
         column: "dataset",
         value: "0 dòng",
-        reason: "Tập dữ liệu không có bản ghi khách hàng nào.",
+        reason: "Tập dữ liệu không có bản ghi nào.",
         suggestion: "Kiểm tra lại dữ liệu đầu vào."
       });
+    }
+
+    if (parsed.isRetailDataset) {
+      // Validate retail/business dataset rows
+      (parsed.rows || []).forEach((row, idx) => {
+        const rowNum = row.__rowNumber || (idx + 2);
+        const keys = Object.keys(row).filter(k => k !== "__rowNumber");
+        const emptyKeys = keys.filter(k => !String(row[k] ?? "").trim());
+        if (emptyKeys.length > 0) {
+          warnings.push({
+            row: rowNum,
+            lead_id: `Row ${rowNum}`,
+            column: emptyKeys.join(", "),
+            value: "(Ô trống)",
+            reason: `Dòng ${rowNum} có ô trống tại cột: ${emptyKeys.join(", ")}.`,
+            suggestion: "Có thể giữ nguyên hoặc bật quy tắc loại bỏ ô trống ở bước Làm sạch."
+          });
+        }
+      });
+
+      return {
+        valid: errors.length === 0,
+        errors,
+        warnings,
+        totalRows: parsed.rows?.length || 0
+      };
     }
 
     (parsed.rows || []).forEach((row, idx) => {
@@ -457,6 +538,7 @@ window.NamVietValidator = (() => {
   return {
     removeVietnameseAccents,
     normalizeHeaderKey,
+    computeFastHash,
     parseCSV,
     matrixToObjects,
     isValidDateString,

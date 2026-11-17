@@ -28,8 +28,8 @@
     </nav>
 
     <div class="topbar-actions">
-      <span id="brainBadge" class="badge badge-neutral">AI Brain...</span>
-      <span id="serverBadge" class="badge badge-neutral">Server...</span>
+      <span id="brainBadge" class="badge badge-neutral hidden" style="display:none;">AI Brain...</span>
+      <span id="serverBadge" class="badge badge-neutral hidden" style="display:none;">Server...</span>
       <button id="btnToggleLLM" class="btn btn-outline btn-sm" type="button">Cấu hình AI</button>
     </div>
   </header>
@@ -75,8 +75,8 @@
           <div>
             <span class="hero-kicker">Đối tác Phần mềm Quản lý SME · Nam Việt</span>
             <h2 class="hero-display">
-              Hiệu quả của Bạn –<br />
-              Sứ mệnh của Agent
+              Hiệu quả của Bạn —<br />
+              Sứ mệnh của <span class="hero-brand-highlight">Chúng tôi</span>
             </h2>
           </div>
           <div id="heroAsterisk" class="hero-asterisk" aria-hidden="true">✳</div>
@@ -385,12 +385,20 @@
         <div class="panel-header">
           <div>
             <h2>1. Nhận File Excel / CSV hoặc Google Sheets</h2>
-            <small id="inputSummaryLine" class="hint hidden"></small>
+            <div class="flex-between" style="gap:10px;flex-wrap:wrap;">
+              <small id="inputSummaryLine" class="hint hidden"></small>
+              <div id="fileHealthRow" class="hidden" style="display:inline-flex;gap:6px;align-items:center;">
+                <span id="fileHashBadge" class="pill pill-yellow" style="font-size:11px;">Mã băm: --</span>
+                <span id="dataHealthBadge" class="pill pill-green" style="font-size:11px;">Chất lượng: 100%</span>
+                <span id="quarantineCountBadge" class="pill pill-amber" style="font-size:11px;">Cách ly: 0</span>
+              </div>
+            </div>
           </div>
           <div class="btn-group">
             <button id="btnToggleInputPanel" class="btn btn-outline btn-sm hidden" type="button">Đổi file / Mở lại</button>
             <button id="btnLoadValidSample" class="btn btn-secondary btn-sm" type="button">Mẫu Chuẩn</button>
-            <button id="btnLoadInvalidSample" class="btn btn-warning btn-sm" type="button">Mẫu Sai Định dạng</button>
+            <button id="btnLoadRetailSample" class="btn btn-warning btn-sm" type="button">Bán lẻ & Doanh thu</button>
+            <button id="btnLoadInvalidSample" class="btn btn-outline btn-sm" type="button">Mẫu Sai Định dạng</button>
             <button id="btnGen700" class="btn btn-outline btn-sm" type="button">Test 700 Leads</button>
             <button id="btnDownloadTemplate" class="btn btn-outline btn-sm" type="button">Tải File Mẫu</button>
           </div>
@@ -505,27 +513,101 @@
       <!-- BƯỚC 3: LÀM SẠCH DỮ LIỆU (DỮ LIỆU ĐÃ SẠCH VÀ ỔN?) -->
       <section id="cleaningSection" class="panel hidden">
         <div class="panel-header">
-          <h2>3. Làm sạch Dữ liệu</h2>
+          <div>
+            <h2>3. Làm sạch Dữ liệu</h2>
+            <small class="hint">Cấu hình quy tắc làm sạch tự động trước khi chuyển sang bước Process.</small>
+          </div>
           <div class="btn-group">
             <button id="btnCleanRetry" class="btn btn-outline btn-sm" type="button">Làm sạch lại ↻</button>
-            <button id="btnCleanDeep" class="btn btn-secondary btn-sm" type="button">Làm sạch sâu (Điền thiếu tự động)</button>
+            <button id="btnCleanDeep" class="btn btn-secondary btn-sm" type="button">Làm sạch sâu (Điền thiếu)</button>
             <button id="btnProceedProcess" class="btn btn-neon" type="button" disabled>Đã sạch & ổn → Chạy Process ▶</button>
           </div>
         </div>
 
         <div id="cleaningBanner" class="alert"></div>
-        <div class="kpi-grid" id="cleaningStatsGrid"></div>
 
-        <div class="two-col mt-2">
-          <div class="subpanel">
-            <h3>Kết quả Làm sạch</h3>
-            <ul id="cleanLogList" class="clean-list"></ul>
+        <!-- Quy tắc làm sạch (Interactive 4 Toggle Cards) -->
+        <div class="clean-rules-section mt-2">
+          <div class="clean-section-title">
+            <h3>Quy tắc làm sạch</h3>
           </div>
-          <div class="subpanel">
-            <h3>Điểm cần Lưu ý</h3>
-            <ul id="cleanWarnList" class="clean-list"></ul>
+          <div class="clean-rules-grid">
+            <label class="clean-rule-card">
+              <input type="checkbox" id="ruleTrimWhitespace" checked />
+              <div class="clean-rule-content">
+                <strong>Cắt khoảng trắng thừa</strong>
+                <span>Xóa khoảng trắng ở đầu và cuối mỗi ô.</span>
+              </div>
+            </label>
+            <label class="clean-rule-card">
+              <input type="checkbox" id="ruleRemoveEmptyRows" checked />
+              <div class="clean-rule-content">
+                <strong>Xóa dòng trống</strong>
+                <span>Loại bỏ các dòng có tất cả các ô trống.</span>
+              </div>
+            </label>
+            <label class="clean-rule-card">
+              <input type="checkbox" id="ruleRemoveDuplicates" checked />
+              <div class="clean-rule-content">
+                <strong>Xóa dòng trùng lặp</strong>
+                <span>Chỉ giữ lần xuất hiện đầu tiên của mỗi dòng.</span>
+              </div>
+            </label>
+            <label class="clean-rule-card">
+              <input type="checkbox" id="ruleDropMissingRows" />
+              <div class="clean-rule-content">
+                <strong>Xóa dòng thiếu dữ liệu</strong>
+                <span>Loại bỏ mọi dòng có ít nhất một ô trống.</span>
+              </div>
+            </label>
           </div>
         </div>
+
+        <!-- 3 Metric Cards Row -->
+        <div class="clean-kpi-row mt-2">
+          <div class="clean-kpi-card">
+            <div class="clean-kpi-label">Dòng sau làm sạch</div>
+            <div class="clean-kpi-val" id="cleanStatCleanedRows">0</div>
+          </div>
+          <div class="clean-kpi-card">
+            <div class="clean-kpi-label">Dòng đã loại bỏ</div>
+            <div class="clean-kpi-val" id="cleanStatRemovedRows">0</div>
+          </div>
+          <div class="clean-kpi-card">
+            <div class="clean-kpi-label">Ô trống còn lại</div>
+            <div class="clean-kpi-val" id="cleanStatRemainingEmpty">0</div>
+          </div>
+        </div>
+
+        <!-- Xem trước sau làm sạch -->
+        <div class="clean-preview-section mt-2">
+          <div class="clean-preview-header">
+            <h3>Xem trước sau làm sạch</h3>
+            <div id="cleanPreviewSummaryLine" class="clean-summary-line">Đang chuẩn bị xem trước...</div>
+          </div>
+          <div id="cleanPreviewTableWrap" class="table-wrap max-h-320 mt-1">
+            <table class="data-table" id="cleanPreviewTable">
+              <thead></thead>
+              <tbody></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Collapsible Detail Subpanels for Audit & Logs -->
+        <details class="clean-detail-collapse mt-2">
+          <summary class="clean-collapse-toggle">▶ Chi tiết số liệu & Cảnh báo bổ sung</summary>
+          <div class="kpi-grid mt-1" id="cleaningStatsGrid"></div>
+          <div class="two-col mt-2">
+            <div class="subpanel">
+              <h3>Nhật ký làm sạch chi tiết</h3>
+              <ul id="cleanLogList" class="clean-list"></ul>
+            </div>
+            <div class="subpanel">
+              <h3>Điểm cần Lưu ý</h3>
+              <ul id="cleanWarnList" class="clean-list"></ul>
+            </div>
+          </div>
+        </details>
       </section>
 
       <!-- BƯỚC 4 & 5: PROCESS -> VERIFY -> FEEDBACK CHO PROCESS -->
@@ -569,12 +651,15 @@
   <div id="dashboardView" class="page-view hidden">
     <main class="container dashboard-container">
       <div class="dashboard-header-bar flex-between mb-2">
-        <div class="dash-title-group">
+        <div class="step6-hero-card">
           <div class="dash-badge-row">
-            <span class="pill pill-yellow"><span class="pulse-beacon"></span> TRANG 4 · BÁO CÁO & DASHBOARD</span>
+            <span class="pill pill-yellow">BƯỚC 06 · CHỐT & XUẤT</span>
             <span id="runMetaText" class="hint" style="margin:0;"></span>
           </div>
-          <h2 class="dash-main-heading">Trung tâm Điều phối & Phân tích Kết quả</h2>
+          <h1 class="hero-title">1-Click Export HTML</h1>
+          <h3 class="hero-subtitle">Dashboard & Xuất HTML</h3>
+          <p class="hero-desc">Rà soát kết quả, duyệt ca Trưởng phòng, chốt kết quả và xuất file báo cáo HTML hoàn chỉnh.</p>
+          <div class="hero-footer-status"><span class="dot-gold">●</span> Hoàn tất + Log JSONL</div>
         </div>
         <div class="btn-group">
           <button id="btnBackToWorkspace" class="btn btn-outline btn-sm" type="button">← Quay lại Xử lý Dữ liệu</button>
@@ -618,100 +703,330 @@
 
         <!-- TAB 1: OVERVIEW -->
         <div id="tabOverview" class="tab-content active mt-2">
-          <div id="kpiGrid" class="kpi-grid"></div>
 
-          <!-- Visual Charts Grid: 4-Card Balanced Full-Fill Grid (Tròn - Cột đứng - Thanh SP - Thanh Trạng thái) -->
-          <div class="charts-grid-4 mt-2">
-            <div class="subpanel chart-card interactive-panel">
-              <div class="flex-between chart-header">
-                <h3><span class="star-yellow">✳</span> Biểu đồ Tròn · Tỷ lệ Ưu tiên</h3>
-                <span class="pill pill-yellow">Tròn</span>
+          <!-- SECTION 1: DASHBOARD KPI KINH DOANH -->
+          <div class="dash-kpi-business-panel subpanel mt-1">
+            <div class="dash-business-header flex-between">
+              <div>
+                <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;">
+                  <h2 class="dash-section-title" style="margin:0;">Dashboard KPI kinh doanh</h2>
+                  <span id="dashAgentScanBadge" class="pill pill-green" style="font-size:11px;"><span class="pulse-beacon"></span> Agent đã rà soát động từ file</span>
+                </div>
+                <div id="dashSubtitleLine" class="hint">Đang phân tích dữ liệu từ file...</div>
               </div>
-              <div class="chart-inner-box">
-                <div id="priorityDonutChart" class="donut-wrap"></div>
+              <div class="dash-filter-group">
+                <div class="dash-filter-item">
+                  <label for="dashDatasetFilter">Bộ dữ liệu</label>
+                  <select id="dashDatasetFilter" class="dash-select">
+                    <option value="auto" selected>📂 Dữ liệu file hiện tại</option>
+                    <option value="retail">Bán lẻ mẫu (sample_retail_kpi.csv)</option>
+                    <option value="crm">CRM Khách hàng (sample_normal_and_edge_cases.csv)</option>
+                    <option value="marketing">Marketing mẫu (sample_marketing.csv)</option>
+                  </select>
+                </div>
+                <div class="dash-filter-item">
+                  <label for="dashPeriodFilter">Kỳ báo cáo</label>
+                  <select id="dashPeriodFilter" class="dash-select">
+                    <option value="auto" selected>Tự động theo kỳ dữ liệu</option>
+                  </select>
+                </div>
               </div>
             </div>
 
-            <div class="subpanel chart-card interactive-panel">
-              <div class="flex-between chart-header">
-                <h3><span class="star-yellow">✳</span> Biểu đồ Cột · Phân bổ Khu vực</h3>
-                <span class="pill pill-yellow">Cột đứng</span>
+            <!-- 4 Top Comparative KPI Cards -->
+            <div class="dash-kpi-comparative-grid mt-2">
+              <div class="dash-kpi-card" id="dashKpiOrders">
+                <div class="dash-kpi-head">Số đơn hàng</div>
+                <div class="dash-kpi-num" id="dashValOrders">312</div>
+                <div class="dash-kpi-unit">Số đơn</div>
+                <div class="dash-kpi-delta positive" id="dashDeltaOrders">+71,4% so với Tháng 03/2026</div>
               </div>
-              <div class="chart-inner-box">
-                <div id="regionColumnChart" class="col-chart-container"></div>
+              <div class="dash-kpi-card" id="dashKpiRevenue">
+                <div class="dash-kpi-head">Doanh thu</div>
+                <div class="dash-kpi-num" id="dashValRevenue">139.600.000 VND</div>
+                <div class="dash-kpi-unit">Doanh thu (VND)</div>
+                <div class="dash-kpi-delta positive" id="dashDeltaRevenue">+39,3% so với Tháng 03/2026</div>
+              </div>
+              <div class="dash-kpi-card" id="dashKpiProfit">
+                <div class="dash-kpi-head">Lợi nhuận</div>
+                <div class="dash-kpi-num" id="dashValProfit">53.048.000 VND</div>
+                <div class="dash-kpi-unit">Lợi nhuận gộp (VND)</div>
+                <div class="dash-kpi-delta positive" id="dashDeltaProfit">+39,3% so với Tháng 03/2026</div>
+              </div>
+              <div class="dash-kpi-card" id="dashKpiCost">
+                <div class="dash-kpi-head">Chi phí</div>
+                <div class="dash-kpi-num" id="dashValCost">86.552.000 VND</div>
+                <div class="dash-kpi-unit">Chi phí giá vốn (VND)</div>
+                <div class="dash-kpi-delta positive" id="dashDeltaCost">+39,3% so với Tháng 03/2026</div>
               </div>
             </div>
+            <div class="dash-compare-caption mt-1">So sánh dựa trên các dòng có ngày trong mỗi tháng. Hãy kiểm tra độ đầy đủ của tháng gần nhất.</div>
 
-            <div class="subpanel chart-card interactive-panel">
-              <div class="flex-between chart-header">
-                <h3><span class="star-yellow">✳</span> Biểu đồ Thanh · Nhóm Sản phẩm</h3>
-                <span class="pill pill-yellow">Thanh ngang</span>
+            <!-- 4 Visual Cards (2x2 Grid) -->
+            <div class="dash-visuals-grid mt-2">
+              <!-- Card 1: Doanh thu theo tháng -->
+              <div class="subpanel dash-visual-card">
+                <div class="dash-card-header">
+                  <h3>Doanh thu theo tháng</h3>
+                  <small class="hint">Doanh thu (VND) · Tối đa 12 tháng có dữ liệu để đối chiếu</small>
+                </div>
+                <div id="dashRevenueTrendSvg" class="dash-trend-box mt-1"></div>
+                <details class="dash-collapsible-detail mt-1">
+                  <summary class="dash-collapsible-summary">▶ Số liệu theo tháng</summary>
+                  <div id="dashMonthTableCollapsible" class="table-wrap mt-1"></div>
+                </details>
               </div>
-              <div class="chart-inner-box">
-                <div id="productBarsChart" class="bars-container"></div>
-              </div>
-            </div>
 
-            <div class="subpanel chart-card interactive-panel">
-              <div class="flex-between chart-header">
-                <h3><span class="star-yellow">✳</span> Biểu đồ Thanh · Trạng thái Điều phối</h3>
-                <span class="pill pill-yellow">Thanh ngang</span>
+              <!-- Card 2: Cơ cấu chi phí -->
+              <div class="subpanel dash-visual-card">
+                <div class="dash-card-header">
+                  <h3>Cơ cấu chi phí</h3>
+                  <small class="hint">Theo Kênh</small>
+                </div>
+                <div id="dashCostDonutChart" class="dash-donut-legend-wrap mt-1"></div>
               </div>
-              <div class="chart-inner-box">
-                <div id="statusBarsChart" class="bars-container"></div>
+
+              <!-- Card 3: Đóng góp doanh thu -->
+              <div class="subpanel dash-visual-card">
+                <div class="dash-card-header">
+                  <h3>Đóng góp doanh thu</h3>
+                  <small class="hint">Theo Kênh</small>
+                </div>
+                <div id="dashRevenueContribBars" class="dash-bars-wrap mt-1"></div>
+                <div class="dash-card-footer mt-1">3 nhóm theo giá trị giảm dần.</div>
+              </div>
+
+              <!-- Card 4: Nhóm làm thay đổi doanh thu -->
+              <div class="subpanel dash-visual-card">
+                <div class="dash-card-header">
+                  <h3>Nhóm làm thay đổi doanh thu</h3>
+                  <small id="dashVarianceSub" class="hint">Tháng 03/2026 → Tháng 04/2026 · Kênh</small>
+                  <div id="dashVarianceNote" class="dash-variance-note">Từ 100.200.000 VND đến 139.600.000 VND · Thay đổi +39.400.000 VND</div>
+                </div>
+                <div id="dashVarianceBars" class="dash-bars-wrap mt-1"></div>
+                <div class="dash-card-footer mt-1">4 nhóm theo độ lớn thay đổi. Thanh tím biểu thị giá trị âm theo độ lớn tuyệt đối.</div>
               </div>
             </div>
           </div>
 
-          <!-- Staff Load Visual Chart -->
-          <div class="subpanel chart-card interactive-panel mt-2">
-            <div class="flex-between">
-              <h3><span class="star-yellow">✳</span> Biểu đồ Thanh Ngang Xếp chồng · Tải 8 NVKD (Hiện có / Giao mới / Chờ duyệt)</h3>
-              <div class="legend-inline">
-                <span><i class="lg-dot" style="background:#52525b"></i>Hiện có</span>
-                <span><i class="lg-dot" style="background:#34d399"></i>Giao mới</span>
-                <span><i class="lg-dot" style="background:#f2ea00"></i>Chờ duyệt</span>
+          <!-- SECTION 2: PHÂN TÍCH CHUYÊN ĐỀ -->
+          <div class="dash-thematic-section subpanel mt-2">
+            <h2 class="dash-section-title">Phân tích chuyên đề</h2>
+
+            <!-- Topic 1: Doanh thu theo Kênh -->
+            <div class="dash-topic-block mt-2">
+              <h3 class="dash-topic-title">Doanh thu (VND) theo Kênh</h3>
+              <div class="dash-topic-grid mt-1">
+                <div class="subpanel dash-topic-card">
+                  <div class="dash-topic-card-header">
+                    <strong>Tổng · Doanh thu (VND)</strong>
+                    <small class="hint">Bộ 1 — Bán lẻ mẫu · Kênh</small>
+                  </div>
+                  <div id="dashTopicRevBars" class="dash-bars-wrap mt-1"></div>
+                  <div class="dash-card-footer mt-1">4 nhóm theo giá trị giảm dần.</div>
+                </div>
+                <div class="subpanel dash-topic-insight-card">
+                  <div class="dash-insight-badge">Nhận định</div>
+                  <div id="dashTopicRevInsight" class="dash-insight-content mt-1">
+                    Bộ 1 — Bán lẻ mẫu · Nhóm "Website" có tổng "Doanh thu (VND)" cao nhất trong 4 nhóm theo "Kênh" (173.200.000). Cột này có số liệu ở 20/20 dòng.
+                  </div>
+                </div>
               </div>
             </div>
-            <div id="staffLoadChart" class="staff-chart-list mt-1"></div>
+
+            <!-- Topic 2: Chi phí giá vốn (VND) và Chi phí -->
+            <div class="dash-topic-block mt-2">
+              <h3 class="dash-topic-title">Chi phí giá vốn (VND) và Chi phí</h3>
+              <div id="dashTopicCogsBanner" class="dash-cogs-banner mt-1">
+                <strong>Chi phí giá vốn (VND)</strong>
+                <p>Bộ 1 — Bán lẻ mẫu · Tổng "Chi phí giá vốn (VND)" là 222.518.000. Cột này có số liệu ở 20/20 dòng.</p>
+              </div>
+              <div class="dash-topic-grid mt-1">
+                <div class="subpanel dash-topic-card">
+                  <div class="dash-topic-card-header">
+                    <strong>Tổng · Chi phí</strong>
+                    <small class="hint">Bộ 2 — Marketing mẫu · Chiến dịch</small>
+                  </div>
+                  <div id="dashTopicMktBars" class="dash-bars-wrap mt-1"></div>
+                  <div class="dash-card-footer mt-1">3 nhóm theo giá trị giảm dần.</div>
+                </div>
+                <div class="subpanel dash-topic-insight-card">
+                  <div class="dash-insight-badge">Nhận định</div>
+                  <div id="dashTopicMktInsight" class="dash-insight-content mt-1">
+                    Bộ 2 — Marketing mẫu · Nhóm "Tìm kiếm" có tổng "Chi phí" cao nhất trong 3 nhóm theo "Chiến dịch" (8.080.000). Cột này có số liệu ở 6/6 dòng.
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
 
-          <!-- Detailed Business Report & Executive Brief -->
-          <div class="two-col mt-2">
-            <div class="subpanel interactive-panel">
-              <h3><span class="star-yellow">✳</span> Báo cáo Chi tiết Kinh doanh</h3>
-              <div id="detailedReportBox" class="detailed-report-box"></div>
+          <!-- SECTION 3: KẾT LUẬN & ĐỀ XUẤT HÀNH ĐỘNG -->
+          <div class="dash-conclusion-section subpanel mt-2">
+            <h2 class="dash-section-title">Kết luận & Đề xuất hành động</h2>
+            <div class="mt-1">
+              <h3 class="dash-subheading">Kết luận</h3>
+              <ul id="dashConclusionList" class="dash-bullet-list mt-1"></ul>
             </div>
-            <div class="subpanel interactive-panel">
+            <div class="mt-2">
+              <h3 class="dash-subheading">Đề xuất hành động</h3>
+              <div id="dashActionList" class="dash-action-cards-grid mt-1"></div>
+            </div>
+          </div>
+
+          <!-- SECTION 4: CRM LEAD & SALES ALLOCATION (EXPANDABLE DETAIL) -->
+          <details class="clean-detail-collapse mt-2" open>
+            <summary class="clean-collapse-toggle">▶ Chi tiết Điều phối CRM Lead & 8 Nhân viên Kinh doanh</summary>
+            <div id="kpiGrid" class="kpi-grid mt-2"></div>
+
+            <!-- Visual Charts Grid: 4-Card Balanced Full-Fill Grid (Tròn - Cột đứng - Thanh SP - Thanh Trạng thái) -->
+            <div class="charts-grid-4 mt-2">
+              <div class="subpanel chart-card interactive-panel">
+                <div class="flex-between chart-header">
+                  <h3><span class="star-yellow">✳</span> Biểu đồ Tròn · Tỷ lệ Ưu tiên</h3>
+                  <span class="pill pill-yellow">Tròn</span>
+                </div>
+                <div class="chart-inner-box">
+                  <div id="priorityDonutChart" class="donut-wrap"></div>
+                </div>
+              </div>
+
+              <div class="subpanel chart-card interactive-panel">
+                <div class="flex-between chart-header">
+                  <h3><span class="star-yellow">✳</span> Biểu đồ Cột · Phân bổ Khu vực</h3>
+                  <span class="pill pill-yellow">Cột đứng</span>
+                </div>
+                <div class="chart-inner-box">
+                  <div id="regionColumnChart" class="col-chart-container"></div>
+                </div>
+              </div>
+
+              <div class="subpanel chart-card interactive-panel">
+                <div class="flex-between chart-header">
+                  <h3><span class="star-yellow">✳</span> Biểu đồ Thanh · Nhóm Sản phẩm</h3>
+                  <span class="pill pill-yellow">Thanh ngang</span>
+                </div>
+                <div class="chart-inner-box">
+                  <div id="productBarsChart" class="bars-container"></div>
+                </div>
+              </div>
+
+              <div class="subpanel chart-card interactive-panel">
+                <div class="flex-between chart-header">
+                  <h3><span class="star-yellow">✳</span> Biểu đồ Thanh · Trạng thái Điều phối</h3>
+                  <span class="pill pill-yellow">Thanh ngang</span>
+                </div>
+                <div class="chart-inner-box">
+                  <div id="statusBarsChart" class="bars-container"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- Staff Load Visual Chart -->
+            <div class="subpanel chart-card interactive-panel mt-2">
               <div class="flex-between">
-                <h3><span class="star-yellow">✳</span> Tóm tắt Điều hành (AI Brief)</h3>
-                <span class="pill pill-green"><span class="pulse-beacon"></span> Live Sync</span>
+                <h3><span class="star-yellow">✳</span> Biểu đồ Thanh Ngang Xếp chồng · Tải 8 NVKD (Hiện có / Giao mới / Chờ duyệt)</h3>
+                <div class="legend-inline">
+                  <span><i class="lg-dot" style="background:#52525b"></i>Hiện có</span>
+                  <span><i class="lg-dot" style="background:#34d399"></i>Giao mới</span>
+                  <span><i class="lg-dot" style="background:#f2ea00"></i>Chờ duyệt</span>
+                </div>
               </div>
-              <div id="executiveBriefBox" class="brief-box"></div>
+              <div id="staffLoadChart" class="staff-chart-list mt-1"></div>
             </div>
-          </div>
 
-          <div class="subpanel mt-2">
-            <h3>Bảng Tổng hợp Phân công 8 NVKD</h3>
-            <div class="table-wrap">
-              <table class="data-table" id="staffStatsTable">
-                <thead>
-                  <tr>
-                    <th>Mã NV</th>
-                    <th>Nhân viên</th>
-                    <th>Khu vực</th>
-                    <th>Ngành</th>
-                    <th>Hiện có</th>
-                    <th>Giao mới</th>
-                    <th>Chờ duyệt</th>
-                    <th>Tổng / Định mức</th>
-                    <th>Trạng thái</th>
-                  </tr>
-                </thead>
-                <tbody></tbody>
-              </table>
+            <!-- BỘ TỨ BIỂU ĐỒ KIỂM SOÁT ĐẦU RA CHO TRƯỞNG PHÒNG (THEO ĐẶC TẢ) -->
+            <div class="subpanel interactive-panel mt-2">
+              <div class="flex-between">
+                <div>
+                  <h3 style="font-size:16px;font-weight:800;color:#111111;"><span class="star-yellow">✳</span> Bộ tứ Biểu đồ Kiểm soát Đầu ra cho Trưởng phòng</h3>
+                  <small class="hint">Giải quyết trực tiếp 4 câu hỏi điều hành: Hao hụt phễu, Tải theo ưu tiên, Tỷ lệ khuyết dữ liệu, và Lý do ngoại lệ.</small>
+                </div>
+                <span class="pill pill-yellow">Kiểm toán Điều hành</span>
+              </div>
+
+              <div class="dash-visuals-grid mt-2">
+                <!-- 1. Lead Funnel Chart -->
+                <div class="subpanel dash-visual-card">
+                  <div class="dash-card-header">
+                    <h3>1. Biểu đồ Phễu Hao hụt Dữ liệu (Lead Funnel)</h3>
+                    <small class="hint">Hồ sơ hao hụt thế nào từ đầu vào đến danh sách gọi NVKD</small>
+                  </div>
+                  <div id="leadFunnelChart" class="dash-bars-wrap mt-1"></div>
+                </div>
+
+                <!-- 2. Staff Stacked by Priority -->
+                <div class="subpanel dash-visual-card">
+                  <div class="dash-card-header">
+                    <div class="flex-between">
+                      <h3>2. Tải 8 NVKD theo Mức Ưu tiên</h3>
+                      <div class="legend-inline" style="font-size:11px;">
+                        <span><i class="lg-dot" style="background:#34d399"></i>Cao</span>
+                        <span><i class="lg-dot" style="background:#f2ea00"></i>TB</span>
+                        <span><i class="lg-dot" style="background:#71717a"></i>Thấp</span>
+                      </div>
+                    </div>
+                    <small class="hint">Mỗi nhân viên nhận bao nhiêu khách ở từng mức ưu tiên + vạch định mức</small>
+                  </div>
+                  <div id="staffPriorityStackedChart" class="staff-chart-list mt-1"></div>
+                </div>
+
+                <!-- 3. Missing Data Heatmap -->
+                <div class="subpanel dash-visual-card">
+                  <div class="dash-card-header">
+                    <h3>3. Heatmap Tỷ lệ Dữ liệu Trống (Missing Data)</h3>
+                    <small class="hint">Dữ liệu thiếu ở đâu: Ma trận theo Cột dữ liệu và Nguồn tiếp nhận</small>
+                  </div>
+                  <div id="dataMissingHeatmap" class="table-wrap mt-1"></div>
+                </div>
+
+                <!-- 4. Exception Breakdown Bar Chart -->
+                <div class="subpanel dash-visual-card">
+                  <div class="dash-card-header">
+                    <h3>4. Phân loại Lý do vào Hàng đợi Trưởng phòng</h3>
+                    <small class="hint">Vì sao khách hàng cần Trưởng phòng can thiệp & duyệt ca</small>
+                  </div>
+                  <div id="exceptionReasonChart" class="dash-bars-wrap mt-1"></div>
+                </div>
+              </div>
             </div>
-          </div>
+
+            <!-- Detailed Business Report & Executive Brief -->
+            <div class="two-col mt-2">
+              <div class="subpanel interactive-panel">
+                <h3><span class="star-yellow">✳</span> Báo cáo Chi tiết Kinh doanh</h3>
+                <div id="detailedReportBox" class="detailed-report-box"></div>
+              </div>
+              <div class="subpanel interactive-panel">
+                <div class="flex-between">
+                  <h3><span class="star-yellow">✳</span> Tóm tắt Điều hành (AI Brief)</h3>
+                  <span class="pill pill-green"><span class="pulse-beacon"></span> Live Sync</span>
+                </div>
+                <div id="executiveBriefBox" class="brief-box"></div>
+              </div>
+            </div>
+
+            <div class="subpanel mt-2">
+              <h3>Bảng Tổng hợp Phân công 8 NVKD</h3>
+              <div class="table-wrap">
+                <table class="data-table" id="staffStatsTable">
+                  <thead>
+                    <tr>
+                      <th>Mã NV</th>
+                      <th>Nhân viên</th>
+                      <th>Khu vực</th>
+                      <th>Ngành</th>
+                      <th>Hiện có</th>
+                      <th>Giao mới</th>
+                      <th>Chờ duyệt</th>
+                      <th>Tổng / Định mức</th>
+                      <th>Trạng thái</th>
+                    </tr>
+                  </thead>
+                  <tbody></tbody>
+                </table>
+              </div>
+            </div>
+          </details>
         </div>
 
         <!-- TAB 2: CUSTOMERS -->

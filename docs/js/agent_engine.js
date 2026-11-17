@@ -234,7 +234,24 @@ window.NamVietAgent = (() => {
     }
 
     // STEP 2: Skill 1 - Normalize & Deduplicate
-    const dedupResult = skills.toolNormalizeAndDeduplicate(parsedDataset.rows, runtimeConfig);
+    let processRows = parsedDataset.rows || [];
+    if (parsedDataset.isRetailDataset) {
+      processRows = (parsedDataset.rows || []).map((r, idx) => ({
+        lead_id: `R${String(idx + 1).padStart(3, "0")}`,
+        company_name: `${r["Kênh"] || r["kenh"] || "Kênh bán lẻ"} - ${r["Sản phẩm"] || r["san_pham"] || "Gói phần mềm"} #${idx + 1}`,
+        contact_name: `Quản lý ${r["Khu vực"] || r["khu_vuc"] || "Kinh doanh"}`,
+        phone: `090${String(1000000 + idx).slice(0, 7)}`,
+        email: `retail${idx + 1}@namviet.vn`,
+        industry: "Bán lẻ",
+        region: r["Khu vực"] || r["khu_vuc"] || "TP.HCM",
+        product_interest: String(r["Sản phẩm"] || r["san_pham"] || "").includes("Pro") ? "NV-ERP" : (String(r["Sản phẩm"] || r["san_pham"] || "").includes("Growth") ? "NV-CRM" : "NV-POS"),
+        need_description: `Đơn hàng ${r["Sản phẩm"] || r["san_pham"] || "sản phẩm"} qua kênh ${r["Kênh"] || r["kenh"] || "Website"} đạt doanh số ${r["Doanh thu (VND)"] || r["doanh_thu"] || "15000000"} VND`,
+        budget_vnd: String(r["Doanh thu (VND)"] || r["doanh_thu"] || "45000000").replace(/[,\s._]/g, ""),
+        source_channel: r["Kênh"] || r["kenh"] || "Website",
+        registered_at: r["Tháng"] ? `${r["Tháng"]}-01` : "2026-04-01"
+      }));
+    }
+    const dedupResult = skills.toolNormalizeAndDeduplicate(processRows, runtimeConfig);
     recordTrace(
       "Phát hiện cùng một doanh nghiệp có thể đăng ký nhiều lần với tên viết tắt hoặc kênh khác nhau. Gọi công cụ chuẩn hóa và gom nhóm hồ sơ trùng.",
       "normalize_and_deduplicate_leads",
@@ -311,7 +328,7 @@ window.NamVietAgent = (() => {
     );
 
     // STEP 6: Skill 5 - Compile Deduplicated Reports & Manager Tasks
-    const report = skills.toolCompileReportsAndStats(assignResult.customers, assignResult.updatedStaffPool);
+    const report = skills.toolCompileReportsAndStats(assignResult.customers, assignResult.updatedStaffPool, parsedDataset.rows || []);
     recordTrace(
       "Tổng hợp số lượng khách hàng duy nhất theo mức ưu tiên và theo nhân viên (không đếm lặp hồ sơ trùng), lập danh sách công việc cho đội Kinh doanh và Trưởng phòng.",
       "compile_manager_report_and_stats",
