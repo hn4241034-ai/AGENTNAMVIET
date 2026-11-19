@@ -1,4 +1,4 @@
-﻿param(
+param(
     [int]$Port = 8765
 )
 
@@ -196,7 +196,7 @@ $listener.Prefixes.Add($prefix)
 $listener.Start()
 
 Write-Host "==========================================================" -ForegroundColor Cyan
-Write-Host "  Nam Viet AI Sales Lead Agent Server running at:" -ForegroundColor Green
+Write-Host "  Minh Hoang AI Sales Lead Agent Server running at:" -ForegroundColor Green
 Write-Host "  $prefix" -ForegroundColor Yellow
 Write-Host "  Press Ctrl+C to stop." -ForegroundColor Gray
 Write-Host "==========================================================" -ForegroundColor Cyan

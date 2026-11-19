@@ -4,44 +4,44 @@
   const WORKFLOW_PREVIEWS = {
     1: {
       badge: "BƯỚC 01 · ĐẦU VÀO",
-      title: "Nhận Excel / Google Sheets",
+      title: "Nhận CSV / Excel / Google Sheets",
       metric: "CSV · XLSX · G-Sheet",
-      desc: "Nạp trực tiếp file từ máy hoặc link Google Sheets nhiều tab (leads, history, staff).",
-      status: "Hỗ trợ ~700 hồ sơ/tuần"
+      desc: "Nạp trực tiếp file dữ liệu bán lẻ, hợp đồng, marketing, tài chính hoặc link Google Sheets công khai.",
+      status: "Tự động đọc mọi bảng dữ liệu"
     },
     2: {
-      badge: "BƯỚC 02 · HỢP LỆ?",
-      title: "Kiểm tra Định dạng",
+      badge: "BƯỚC 02 · KIỂM ĐỊNH",
+      title: "Kiểm tra Cấu trúc & Định dạng",
       metric: "Schema & Type Gate",
-      desc: "Sai cột, SĐT, Email, Ngày hoặc Ngân sách sẽ báo lỗi cụ thể từng ô để sửa ngay tại bảng.",
-      status: "Khóa quy trình nếu sai chuẩn"
+      desc: "Tự động nhận diện kiểu cột số liệu, ngày tháng, phân nhóm và báo lỗi cụ thể từng ô để sửa ngay tại bảng.",
+      status: "Chặn dữ liệu lỗi ngay đầu vào"
     },
     3: {
-      badge: "BƯỚC 03 · ĐÃ SẠCH?",
-      title: "Làm sạch Dữ liệu",
-      metric: "Normalize & Stabilize",
-      desc: "Chuẩn hóa SĐT (+84→0), ngày YYYY-MM-DD, khu vực, mã SP. Có thể làm sạch lại đến khi ổn.",
-      status: "Sẵn sàng trước khi Process"
+      badge: "BƯỚC 03 · PHẠM VI & LÀM SẠCH",
+      title: "Trao đổi AI & Chuẩn hóa Dữ liệu",
+      metric: "Interactive AI Scope",
+      desc: "AI đọc trực tiếp nội dung file, gợi ý câu hỏi theo góc nhìn thực tế, chat chốt phạm vi và làm sạch dữ liệu.",
+      status: "Đồng bộ phạm vi xuống Dashboard"
     },
     4: {
       badge: "BƯỚC 04 · PROCESS",
-      title: "AI Agent Xử lý (5 Skills)",
+      title: "AI Agent Phân tích Đa hình",
       metric: "Gemini Dual-Brain",
-      desc: "Gộp trùng viết tắt/alias, chặn lịch sử opt-out, chấm ưu tiên tránh bẫy sai SP, gán 8 NVKD.",
-      status: "Tạo sẵn bản nháp & câu hỏi"
+      desc: "Tự động chọn 4 chỉ số KPI phù hợp lĩnh vực, lọc nhóm theo yêu cầu và tổng hợp nhận định chuyên sâu.",
+      status: "Không bịa số liệu khi thiếu cột"
     },
     5: {
-      badge: "BƯỚC 05 · VERIFY?",
-      title: "Kiểm chứng & Feedback",
-      metric: "5 Tiêu chí Kiểm soát",
-      desc: "Tự kiểm tra không đếm lặp, chặn sai SP, ca VIP. Chưa đạt → gửi Feedback chạy lại Process.",
-      status: "Vòng lặp phản hồi khép kín"
+      badge: "BƯỚC 05 · VERIFY",
+      title: "Kiểm chứng & Phản hồi Tinh chỉnh",
+      metric: "Data Integrity Check",
+      desc: "Đối chiếu độ nhất quán của dữ liệu và số liệu tổng hợp; cho phép gửi Feedback để AI phân tích lại ngay.",
+      status: "Vòng lặp tinh chỉnh khép kín"
     },
     6: {
-      badge: "BƯỚC 06 · CHỐT & XUẤT",
-      title: "Dashboard & Xuất HTML",
+      badge: "BƯỚC 06 · DASHBOARD & XUẤT",
+      title: "Dashboard KPI & Báo cáo HTML",
       metric: "1-Click Export HTML",
-      desc: "Rà soát kết quả, duyệt ca Trưởng phòng, chốt kết quả và xuất file báo cáo HTML hoàn chỉnh.",
+      desc: "Biểu đồ tự thích ứng, thẻ giải đáp trực tiếp câu hỏi đã trao đổi với AI và xuất file báo cáo HTML độc lập.",
       status: "Hoàn tất + Log JSONL"
     }
   };
@@ -212,14 +212,14 @@
     });
     selectStep(1);
 
-    // Interactive product filter chips on hero white card
+    // Interactive analytics pillar chips on hero white card
     const prodPills = Array.from(document.querySelectorAll(".hero-prod-pill"));
     const prodDetail = document.getElementById("heroProdDetail");
     const prodMap = {
-      "NV-ERP": "Quản trị tổng thể, kho & kế toán sản xuất",
-      "NV-CRM": "Quản lý khách hàng & sales pipeline",
-      "NV-HRM": "Chấm công, tính lương & nhân sự",
-      "NV-POS": "Bán hàng & quản lý chuỗi cửa hàng"
+      "KPI": "Tự động nhận diện cột & dựng 4 thẻ KPI theo đúng ngữ cảnh file",
+      "TREND": "Theo dõi xu hướng biến động qua từng kỳ tháng & tăng trưởng",
+      "DONUT": "Phân rã cơ cấu đóng góp theo kênh, chu kỳ, khu vực & phân khúc",
+      "CHAT": "Trao đổi trực tiếp, lọc nhóm & giải đáp câu hỏi từ số liệu thật"
     };
     prodPills.forEach(btn => {
       btn.addEventListener("click", (e) => {

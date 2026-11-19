@@ -345,7 +345,7 @@ window.NamVietSkills = (() => {
           ...cust,
           priority_score: 15,
           priority_level: "Thấp",
-          priority_rationale: `Không phù hợp danh mục phần mềm Nam Việt (phát hiện nhu cầu ngoài phạm vi: "${cust.wrong_product_reasons.join(", ")}"). Dù ngân sách ${formatVND(cust.budget_vnd)}, hệ thống chặn ưu tiên cao để tránh sai lệch.`
+          priority_rationale: `Không phù hợp danh mục phần mềm Minh Hoàng (phát hiện nhu cầu ngoài phạm vi: "${cust.wrong_product_reasons.join(", ")}"). Dù ngân sách ${formatVND(cust.budget_vnd)}, hệ thống chặn ưu tiên cao để tránh sai lệch.`
         };
       }
 
@@ -358,7 +358,7 @@ window.NamVietSkills = (() => {
         reasons.push(`Khớp sản phẩm ${top.product_id} (+${prodScore}/${weights.product_fit}đ)`);
       } else {
         prodScore = 10;
-        reasons.push(`Chưa xác định rõ sản phẩm Nam Việt phù hợp (+10/${weights.product_fit}đ)`);
+        reasons.push(`Chưa xác định rõ sản phẩm Minh Hoàng phù hợp (+10/${weights.product_fit}đ)`);
       }
 
       // 2. Need clarity (0-25)
@@ -545,7 +545,7 @@ window.NamVietSkills = (() => {
 
       // Draft Outreach Message or Clarifying Questions
       const contactGreeting = cust.contacts.length > 0 ? `Anh/Chị ${cust.contacts[0]}` : "Quý Doanh nghiệp";
-      const prodLabel = cust.primary_product ? cust.primary_product.product_name : "giải pháp phần mềm quản lý Nam Việt";
+      const prodLabel = cust.primary_product ? cust.primary_product.product_name : "giải pháp phần mềm quản lý Minh Hoàng";
       let draftType = "outreach";
       let draftMessage = "";
       let nextAction = "";
@@ -555,8 +555,8 @@ window.NamVietSkills = (() => {
         nextAction = "Gửi email phản hồi lịch sự xác nhận phạm vi sản phẩm và hỏi lại có nhu cầu ERP/CRM/HRM/POS không.";
         draftMessage =
           `Kính gửi ${contactGreeting} (${cust.company_name}),\n` +
-          `Cảm ơn Anh/Chị đã quan tâm tới Công ty Phần mềm Nam Việt qua ${cust.channels.join("/")}.\n` +
-          `Hiện Nam Việt chuyên cung cấp giải pháp quản trị doanh nghiệp SME (ERP, CRM, HRM, POS). Với yêu cầu về "${cust.wrong_product_reasons.join(", ")}", bên em chưa trực tiếp triển khai hạng mục này.\n` +
+          `Cảm ơn Anh/Chị đã quan tâm tới Công ty Phần mềm Minh Hoàng qua ${cust.channels.join("/")}.\n` +
+          `Hiện Minh Hoàng chuyên cung cấp giải pháp quản trị doanh nghiệp SME (ERP, CRM, HRM, POS). Với yêu cầu về "${cust.wrong_product_reasons.join(", ")}", bên em chưa trực tiếp triển khai hạng mục này.\n` +
           `Không biết bên mình có đang tìm hiểu thêm phần mềm quản lý kho, bán hàng hay nhân sự để em hỗ trợ tư vấn phù hợp hơn không ạ?`;
       } else if (cust.missing_fields.length > 0) {
         draftType = "clarify_questions";
@@ -583,7 +583,7 @@ window.NamVietSkills = (() => {
 
         draftMessage =
           `Chào ${contactGreeting} (${cust.company_name}),\n` +
-          `Em là ${assignedStaff ? assignedStaff.staff_name : "chuyên viên tư vấn"} từ Công ty Phần mềm Nam Việt. Cảm ơn bên mình đã đăng ký qua ${cust.channels.join("/")} về nhu cầu ${cust.primary_product ? cust.primary_product.category : "quản lý doanh nghiệp"}.\n` +
+          `Em là ${assignedStaff ? assignedStaff.staff_name : "chuyên viên tư vấn"} từ Công ty Phần mềm Minh Hoàng. Cảm ơn bên mình đã đăng ký qua ${cust.channels.join("/")} về nhu cầu ${cust.primary_product ? cust.primary_product.category : "quản lý doanh nghiệp"}.\n` +
           `Để bên em chuẩn bị đúng bộ demo ${prodLabel} và báo giá sát nhất, anh/chị cho em xin thêm vài thông tin ngắn nhé:\n` +
           questions.join("\n") +
           `\nEm xin cảm ơn và sẵn sàng trao đổi 15 phút theo lịch thuận tiện của anh/chị ạ.`;
@@ -595,7 +595,7 @@ window.NamVietSkills = (() => {
 
         draftMessage =
           `Kính chào ${contactGreeting} – ${cust.company_name},\n` +
-          `Em là ${assignedStaff ? assignedStaff.staff_name : "đại diện kinh doanh"} phụ trách khối ${cust.industry || "SME"} tại ${cust.region || "khu vực"} của Công ty Phần mềm Nam Việt.\n` +
+          `Em là ${assignedStaff ? assignedStaff.staff_name : "đại diện kinh doanh"} phụ trách khối ${cust.industry || "SME"} tại ${cust.region || "khu vực"} của Công ty Phần mềm Minh Hoàng.\n` +
           `Ghi nhận từ ${cust.channels.join(" & ")} về nhu cầu triển khai ${prodLabel} (ngân sách dự kiến ${formatVND(cust.budget_vnd)}), bên em đã tổng hợp phương án phù hợp với quy mô của quý công ty.\n` +
           `Anh/Chị có thuận tiện trao đổi 15–20 phút trong tuần này để bên em demo trực tiếp quy trình thực tế không ạ?`;
       }
@@ -673,7 +673,7 @@ window.NamVietSkills = (() => {
     const funnelData = [
       { stage: "1. Bản ghi đầu vào", count: totalRawRecords, pct: 100, color: "#52525b" },
       { stage: "2. Khách sau gộp trùng", count: customers.length, pct: Math.round((customers.length / Math.max(1, totalRawRecords)) * 100), color: "#0d9488" },
-      { stage: "3. Khớp SP Nam Việt", count: productFitCount, pct: Math.round((productFitCount / Math.max(1, totalRawRecords)) * 100), color: "#0f766e" },
+      { stage: "3. Khớp SP Minh Hoàng", count: productFitCount, pct: Math.round((productFitCount / Math.max(1, totalRawRecords)) * 100), color: "#0f766e" },
       { stage: "4. Danh sách gọi NVKD", count: assignedCallList.length, pct: Math.round((assignedCallList.length / Math.max(1, totalRawRecords)) * 100), color: "#16a34a" }
     ];
 

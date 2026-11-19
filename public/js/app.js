@@ -205,7 +205,8 @@
   function showDashboardView() {
     renderBusinessKpiDashboard(
       $("#dashDatasetFilter") ? $("#dashDatasetFilter").value : "auto",
-      $("#dashPeriodFilter") ? $("#dashPeriodFilter").value : "auto"
+      $("#dashPeriodFilter") ? $("#dashPeriodFilter").value : "auto",
+      true
     );
     if (state.agentOutput) {
       renderResultsDashboard();
@@ -215,6 +216,13 @@
   }
 
   function bindEvents() {
+    $("#btnRunDashboardAgent")?.addEventListener("click", () => {
+      renderBusinessKpiDashboard(
+        $("#dashDatasetFilter") ? $("#dashDatasetFilter").value : "auto",
+        $("#dashPeriodFilter") ? $("#dashPeriodFilter").value : "auto",
+        true
+      );
+    });
     $("#brandHomeBtn").addEventListener("click", showLandingView);
     $("#navLandingBtn").addEventListener("click", showLandingView);
     $("#navWorkflowBtn").addEventListener("click", showWorkflowView);
@@ -284,12 +292,12 @@
     // Dashboard Filters live sync
     if ($("#dashDatasetFilter")) {
       $("#dashDatasetFilter").addEventListener("change", (e) => {
-        renderBusinessKpiDashboard(e.target.value, "auto");
+        renderBusinessKpiDashboard(e.target.value, "auto", true);
       });
     }
     if ($("#dashPeriodFilter")) {
       $("#dashPeriodFilter").addEventListener("change", (e) => {
-        renderBusinessKpiDashboard($("#dashDatasetFilter") ? $("#dashDatasetFilter").value : "auto", e.target.value);
+        renderBusinessKpiDashboard($("#dashDatasetFilter") ? $("#dashDatasetFilter").value : "auto", e.target.value, true);
       });
     }
 
@@ -315,7 +323,7 @@
     $("#btnToggleInputPanel").addEventListener("click", () => {
       const body = $("#inputPanelBody");
       const hidden = body.classList.toggle("hidden");
-      $("#btnToggleInputPanel").textContent = hidden ? "Đổi file / Mở lại" : "Thu gọn";
+      $("#btnToggleInputPanel").textContent = hidden ? "📂 Đổi file dữ liệu" : "✕ Thu gọn khung nạp file";
     });
     $("#btnToggleErrorDetails").addEventListener("click", () => {
       state.showErrorDetails = !state.showErrorDetails;
@@ -332,8 +340,37 @@
       runValidationGate();
     });
     $("#btnAutoFixCommon").addEventListener("click", autoFixCommonErrors);
-    $("#btnGoToClean").addEventListener("click", () => enterCleaningStep("standard"));
-    $("#btnSkipMissingAndNext").addEventListener("click", () => enterCleaningStep("standard", true, true));
+    $("#btnGoToClean").addEventListener("click", () => enterBusinessContextStep());
+    $("#btnSkipMissingAndNext").addEventListener("click", () => enterBusinessContextStep());
+    $("#btnConfirmContextProceedClean").addEventListener("click", () => {
+      saveBusinessContextFromUI();
+      enterCleaningStep("standard", true);
+    });
+    $("#btnSkipContextDirectClean").addEventListener("click", () => enterCleaningStep("standard", true));
+    $("#btnReopenContext").addEventListener("click", () => enterBusinessContextStep());
+    $("#btnReviewScope").addEventListener("click", () => {
+      refreshInteractiveAiScope(true);
+    });
+    $("#ctxBusinessType").addEventListener("input", updateAiUnderstanding);
+    $("#ctxAnalysisQuestions").addEventListener("input", updateAiUnderstanding);
+    $("#btnSendScopeChat")?.addEventListener("click", () => handleSendScopeChat());
+    $("#aiScopeChatInput")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleSendScopeChat();
+      }
+    });
+    $("#btnDashReopenScope")?.addEventListener("click", () => {
+      showPage("workspace", true);
+      enterBusinessContextStep();
+    });
+    $("#btnDashQuickAsk")?.addEventListener("click", () => handleDashboardQuickAsk());
+    $("#dashQuickAskInput")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleDashboardQuickAsk();
+      }
+    });
     $("#btnCleanRetry").addEventListener("click", () => enterCleaningStep("standard"));
     $("#btnCleanDeep").addEventListener("click", () => enterCleaningStep("deep"));
     $("#btnProceedProcess").addEventListener("click", () => handleRunAgentPipeline(""));
@@ -604,7 +641,7 @@
     // Collapse Step 1 upload panel to keep focus on active step
     $("#inputPanelBody").classList.add("hidden");
     $("#btnToggleInputPanel").classList.remove("hidden");
-    $("#btnToggleInputPanel").textContent = "Đổi file / Mở lại";
+    $("#btnToggleInputPanel").textContent = "📂 Đổi file dữ liệu";
     $("#inputSummaryLine").classList.remove("hidden");
     $("#inputSummaryLine").textContent = `Đã nạp: ${sourceLabel} (${parsed.rows.length} dòng)`;
 
@@ -641,6 +678,7 @@
     $("#validationBody").classList.remove("hidden");
     $("#validationSummaryLine").classList.add("hidden");
     $("#repairLogBox").classList.add("hidden");
+    $("#businessContextSection")?.classList.add("hidden");
     $("#cleaningSection").classList.add("hidden");
     $("#processVerifySection").classList.add("hidden");
     $("#resultsSection").classList.add("hidden");
@@ -691,15 +729,16 @@
         updateWorkflowSteps(2, { validationState: "ok" });
       } else {
         banner.className = "alert alert-success";
-        banner.innerHTML = `<strong>Đầu vào hợp lệ ✓</strong> (${res.totalRows} dòng). Chuyển sang <strong>Làm sạch Dữ liệu</strong>.`;
+        banner.innerHTML = `<strong>Đầu vào hợp lệ ✓</strong> (${res.totalRows} dòng). Tiếp tục xác nhận <strong>Bối cảnh Doanh nghiệp & Làm sạch</strong>.`;
         previewDetails.open = false;
-        enterCleaningStep("standard", false);
+        enterBusinessContextStep();
       }
     } else {
       banner.className = "alert alert-danger";
       banner.innerHTML = `<strong>Sai định dạng (${res.errors.length} lỗi)!</strong> Bấm <strong>Tự động Sửa lỗi</strong> hoặc bật <strong>Xem lỗi (${res.errors.length})</strong> để kiểm tra và sửa.`;
       btnGoClean.classList.add("hidden");
       btnFix.classList.remove("hidden");
+      $("#businessContextSection")?.classList.add("hidden");
       $("#cleaningSection").classList.add("hidden");
       $("#processVerifySection").classList.add("hidden");
       $("#resultsSection").classList.add("hidden");
@@ -736,7 +775,10 @@
 
   function renderEditablePreviewTable(errors) {
     const rows = state.parsedDataset.rows || [];
-    const cols = ["lead_id", "company_name", "tax_code", "contact_name", "phone", "email", "industry", "region", "product_interest", "need_description", "budget_vnd", "source_channel", "registered_at"];
+    const defaultCrmCols = ["lead_id", "company_name", "tax_code", "contact_name", "phone", "email", "industry", "region", "product_interest", "need_description", "budget_vnd", "source_channel", "registered_at"];
+    const cols = (state.parsedDataset.isRetailDataset && state.parsedDataset.headers?.length)
+      ? state.parsedDataset.headers
+      : defaultCrmCols;
 
     const errLookup = new Set(errors.map(e => `${e.row}::${e.column}`));
 
@@ -783,9 +825,699 @@
     runValidationGate();
   }
 
+  // ---- STEP 2.5: Interactive Data-Driven Business Context & Human-AI Consultation ----
+  function normalizeViText(str) {
+    return String(str || "")
+      .toLowerCase()
+      .normalize("NFD")
+      .replace(/[\u0300-\u036f]/g, "")
+      .replace(/đ/g, "d");
+  }
+
+  function getActiveLlmOptions() {
+    return {
+      enabled: $("#llmEnabled") ? $("#llmEnabled").checked : true,
+      endpoint: $("#llmEndpoint") ? $("#llmEndpoint").value.trim() : "",
+      model: $("#llmModel") ? $("#llmModel").value.trim() : "gemini-3.5-flash-lite",
+      apiKey: $("#llmApiKey") ? $("#llmApiKey").value.trim() : ""
+    };
+  }
+
+  function buildFileDataProfile(rawRows, headers, schema) {
+    const rows = Array.isArray(rawRows) ? rawRows : [];
+    const sch = schema || detectAdaptiveSchema(rows, headers);
+    const primaryCol = sch.colPrimaryMetric || sch.colRev || null;
+
+    // Periods breakdown
+    const periodMap = {};
+    const periodSet = new Set();
+    if (sch.colDate) {
+      rows.forEach(r => {
+        const p = parsePeriodString(r[sch.colDate]);
+        if (p && p !== "(Không có ngày)") {
+          periodSet.add(p);
+          const v = primaryCol ? parseNumeric(r[primaryCol], 0) : 1;
+          periodMap[p] = (periodMap[p] || 0) + v;
+        }
+      });
+    }
+    const sortedPeriods = Array.from(periodSet).sort();
+    const periodNames = sortedPeriods.map(formatPeriodName);
+    let peakPeriod = null;
+    let troughPeriod = null;
+    if (sortedPeriods.length) {
+      const pEntries = sortedPeriods.map((p, idx) => ({ period: p, label: periodNames[idx], val: periodMap[p] || 0 }));
+      pEntries.sort((a, b) => b.val - a.val);
+      peakPeriod = pEntries[0];
+      troughPeriod = pEntries[pEntries.length - 1];
+    }
+
+    // Numeric metrics summary
+    const metrics = (sch.numericCandidates || []).map(c => ({
+      col: c.col,
+      name: c.name || getColDisplayName(c.col),
+      sum: c.sum,
+      avg: c.avg,
+      isCurr: c.isCurr,
+      isCnt: c.isCnt
+    }));
+
+    // Categorical dimensions with top values & metric totals
+    const totalPrimaryAll = primaryCol
+      ? rows.reduce((acc, r) => acc + parseNumeric(r[primaryCol], 0), 0)
+      : rows.length;
+
+    let blankCount = 0;
+    const dimensions = (sch.categoricalCandidates || []).slice(0, 4).map(c => {
+      const valMap = {};
+      rows.forEach(r => {
+        const rawV = String(r[c.col] ?? "").trim();
+        if (!rawV) {
+          blankCount++;
+          return;
+        }
+        if (!valMap[rawV]) valMap[rawV] = { name: rawV, count: 0, val: 0 };
+        valMap[rawV].count += 1;
+        valMap[rawV].val += primaryCol ? parseNumeric(r[primaryCol], 0) : 1;
+      });
+      const topValues = Object.values(valMap)
+        .sort((a, b) => b.val - a.val)
+        .slice(0, 6)
+        .map(v => ({
+          ...v,
+          pct: totalPrimaryAll > 0 ? Number(((v.val / totalPrimaryAll) * 100).toFixed(1)) : 0
+        }));
+      return {
+        col: c.col,
+        name: c.name || getColDisplayName(c.col),
+        distinctCount: c.distinctCount,
+        topValues
+      };
+    });
+
+    return {
+      domainType: sch.domainType,
+      domainName: sch.domainName,
+      rowCount: rows.length,
+      headers,
+      dateCol: sch.colDate,
+      dateColLabel: sch.colDate ? getColDisplayName(sch.colDate) : "",
+      entityCol: sch.colEntity,
+      entityColLabel: sch.colEntity ? getColDisplayName(sch.colEntity) : "",
+      sortedPeriods,
+      periodNames,
+      peakPeriod,
+      troughPeriod,
+      metrics,
+      dimensions,
+      blankCount,
+      schema: sch
+    };
+  }
+
+  function parseDirectivesFromContext(businessContext, dataProfile, schema) {
+    const ctx = businessContext || {};
+    const profile = dataProfile || state.currentFileProfile;
+    const sch = schema || profile?.schema || null;
+    const chatDir = ctx.chatDirectives || {};
+
+    const directives = {
+      focusPeriod: chatDir.focusPeriod || "auto",
+      focusMetricCol: chatDir.focusMetricCol || null,
+      focusDimCol: chatDir.focusDimCol || null,
+      focusGroupValues: Array.isArray(chatDir.focusGroupValues) ? [...chatDir.focusGroupValues] : [],
+      targetGoal: chatDir.targetGoal || null,
+      userQuestions: (ctx.analysisQuestions || "")
+        .split("\n")
+        .map(s => s.trim())
+        .filter(Boolean)
+    };
+
+    const dynamicQA = Array.isArray(ctx.dynamicQA) ? ctx.dynamicQA : [];
+    const combinedAnswersText = dynamicQA.map(q => q.answer || "").join("\n");
+    const nAns = normalizeViText(combinedAnswersText);
+
+    // 1. Period directive from Q&A if chat didn't override
+    if (directives.focusPeriod === "auto" && profile?.sortedPeriods?.length) {
+      const periodAnswer = normalizeViText(dynamicQA.find(q => q.role === "period")?.answer || combinedAnswersText);
+      if (/(toan bo|tat ca|ca \d+ ky|xem tat ca)/i.test(periodAnswer)) {
+        directives.focusPeriod = "all";
+      } else {
+        let matched = null;
+        for (let i = 0; i < profile.sortedPeriods.length; i++) {
+          const per = profile.sortedPeriods[i];
+          const [yy, mm] = per.split("-");
+          const mmInt = String(parseInt(mm, 10));
+          if (periodAnswer.includes(per) || periodAnswer.includes(`${mm}/${yy}`) || new RegExp(`thang\\s*0?${mmInt}\\b`).test(periodAnswer)) {
+            matched = per;
+            break;
+          }
+        }
+        if (matched) {
+          directives.focusPeriod = matched;
+        } else if (/(moi nhat|gan nhat|thang cuoi)/i.test(periodAnswer)) {
+          directives.focusPeriod = profile.sortedPeriods[profile.sortedPeriods.length - 1];
+        }
+      }
+    }
+
+    // 2. Metric priority directive from Q&A if chat didn't override
+    if (!directives.focusMetricCol && profile?.metrics?.length) {
+      const metricAnswer = normalizeViText(dynamicQA.find(q => q.role === "metric")?.answer || combinedAnswersText);
+      // Skip if user explicitly says "đối chiếu cả" / "song song" without favoring the 2nd one alone
+      const isPreferExplicit = /(uu tien|tap trung|dao sang|chuyen sang|chon)/i.test(metricAnswer) && !/(song song|ca 2|doi chieu ca)/i.test(metricAnswer);
+      if (isPreferExplicit) {
+        for (const m of profile.metrics) {
+          const nm = normalizeViText(m.name);
+          const nc = normalizeViText(m.col).replace(/_/g, " ");
+          if ((nm && metricAnswer.includes(nm)) || (nc && metricAnswer.includes(nc))) {
+            directives.focusMetricCol = m.col;
+            break;
+          }
+        }
+      }
+    }
+
+    // 3. Dimension switch directive from Q&A if chat didn't override
+    if (!directives.focusDimCol && profile?.dimensions?.length >= 2) {
+      const dimAnswer = normalizeViText(dynamicQA.find(q => q.role === "dimension_switch")?.answer || combinedAnswersText);
+      if (/(phan tich chinh theo|doi chieu.*sang|chuyen sang theo)/i.test(dimAnswer)) {
+        for (const d of profile.dimensions) {
+          const nd = normalizeViText(d.name);
+          const nc = normalizeViText(d.col).replace(/_/g, " ");
+          if ((nd && dimAnswer.includes(nd)) || (nc && dimAnswer.includes(nc))) {
+            directives.focusDimCol = d.col;
+            break;
+          }
+        }
+      }
+    }
+
+    // 4. Specific group filter from Q&A if chat didn't explicitly set
+    if (!Array.isArray(chatDir.focusGroupValues) && profile?.dimensions?.length) {
+      const dimAns = normalizeViText(dynamicQA.find(q => q.role === "dimension")?.answer || "");
+      const wantsOnlySpecific = /(chi tap trung|chi xem|loc rieng|rieng nhom)/i.test(dimAns) && !/(tat ca|toan bo|so sanh tat ca)/i.test(dimAns);
+      if (wantsOnlySpecific) {
+        const found = [];
+        profile.dimensions.forEach(d => {
+          d.topValues.forEach(v => {
+            const nv = normalizeViText(v.name);
+            if (nv.length >= 2 && dimAns.includes(nv) && !found.includes(v.name)) {
+              found.push(v.name);
+            }
+          });
+        });
+        if (found.length) directives.focusGroupValues = found;
+      }
+    }
+
+    // 5. Target goal from Q&A if chat didn't set
+    if (!directives.targetGoal) {
+      const targetAns = normalizeViText(dynamicQA.find(q => q.role === "target")?.answer || combinedAnswersText);
+      const mTy = targetAns.match(/(\d+(?:[.,]\d+)?)\s*(ty|ti\b)/i);
+      const mTri = targetAns.match(/(\d+(?:[.,]\d+)?)\s*(trieu|tr\b)/i);
+      const mVnd = targetAns.match(/(\d{1,3}(?:\.\d{3}){2,})\s*vnd/i);
+      const mPct = targetAns.match(/([+-]?\d+(?:[.,]\d+)?)\s*%/);
+      if (mTy) {
+        const val = parseFloat(mTy[1].replace(",", ".")) * 1e9;
+        directives.targetGoal = { type: "amount", value: val, label: formatCurrencyFull(val) };
+      } else if (mTri) {
+        const val = parseFloat(mTri[1].replace(",", ".")) * 1e6;
+        directives.targetGoal = { type: "amount", value: val, label: formatCurrencyFull(val) };
+      } else if (mVnd) {
+        const val = parseFloat(mVnd[1].replace(/\./g, ""));
+        directives.targetGoal = { type: "amount", value: val, label: formatCurrencyFull(val) };
+      } else if (mPct && /(muc tieu|tang truong|canh bao)/i.test(targetAns)) {
+        const pctVal = parseFloat(mPct[1].replace(",", "."));
+        directives.targetGoal = { type: "pct", value: pctVal, label: `${pctVal >= 0 ? "+" : ""}${pctVal}%` };
+      }
+    }
+
+    return directives;
+  }
+
+  function renderActiveDirectivesPreview(directives, dataProfile) {
+    const el = $("#aiActiveDirectivesPreview");
+    if (!el) return;
+    const p = dataProfile || state.currentFileProfile;
+    const pills = [];
+
+    const periodLabel = directives.focusPeriod === "all"
+      ? `Toàn bộ ${p?.sortedPeriods?.length || 1} kỳ`
+      : (directives.focusPeriod && directives.focusPeriod !== "auto" ? formatPeriodName(directives.focusPeriod) : "Tự động theo file");
+    pills.push(`<span class="ai-directive-pill">📅 Kỳ: ${escapeHtml(periodLabel)}</span>`);
+
+    const metricLabel = directives.focusMetricCol
+      ? getColDisplayName(directives.focusMetricCol)
+      : (p?.metrics?.[0]?.name || "Tự động");
+    pills.push(`<span class="ai-directive-pill">📊 Chỉ số ưu tiên: ${escapeHtml(metricLabel)}</span>`);
+
+    const dimLabel = directives.focusDimCol
+      ? getColDisplayName(directives.focusDimCol)
+      : (p?.dimensions?.[0]?.name || "Tự động");
+    pills.push(`<span class="ai-directive-pill">🏷 Chiều phân tích: ${escapeHtml(dimLabel)}</span>`);
+
+    if (directives.focusGroupValues?.length) {
+      pills.push(`<span class="ai-directive-pill amber">🔍 Lọc nhóm: ${escapeHtml(directives.focusGroupValues.join(", "))}</span>`);
+    }
+    if (directives.targetGoal?.label) {
+      pills.push(`<span class="ai-directive-pill amber">🎯 Mục tiêu: ${escapeHtml(directives.targetGoal.label)}</span>`);
+    }
+    pills.push(`<span class="ai-directive-pill">❓ ${directives.userQuestions.length || 1} câu hỏi sẽ được giải đáp</span>`);
+
+    el.innerHTML = pills.join("");
+  }
+
+  function renderScopeChatMessages() {
+    const box = $("#aiScopeChatMessages");
+    if (!box) return;
+    const msgs = state.scopeChatHistory || [];
+    if (!msgs.length) {
+      box.innerHTML = `<div class="ai-loading-placeholder">AI Agent đang đọc dữ liệu trong file để bắt đầu trao đổi với bạn...</div>`;
+      return;
+    }
+    box.innerHTML = msgs.map(m => `
+      <div class="ai-chat-msg ${m.role === "user" ? "user" : "ai"}">
+        <div class="ai-chat-avatar">${m.role === "user" ? "BẠN" : "AI"}</div>
+        <div>
+          <div class="ai-chat-bubble">${m.isTyping ? `<span class="ai-typing-dots"><span></span><span></span><span></span></span> Đang đối chiếu số liệu trong file...` : escapeHtml(m.text)}</div>
+          ${m.meta ? `<div class="ai-chat-meta">${escapeHtml(m.meta)}</div>` : ""}
+        </div>
+      </div>
+    `).join("");
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function renderChatQuickPrompts(prompts) {
+    const wrap = $("#aiChatQuickPrompts");
+    if (!wrap) return;
+    const list = Array.isArray(prompts) ? prompts.slice(0, 4) : [];
+    wrap.innerHTML = list.map(text => `
+      <button type="button" class="ai-quick-chip ai-chat-prompt-btn" data-prompt="${escapeHtml(text)}">💬 ${escapeHtml(text)}</button>
+    `).join("");
+    wrap.querySelectorAll(".ai-chat-prompt-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        handleSendScopeChat(btn.dataset.prompt || btn.textContent);
+      });
+    });
+  }
+
+  function renderSuggestedAnglesList(angles) {
+    const ul = $("#aiSuggestedAnglesList");
+    if (!ul) return;
+    if (!angles || !angles.length) {
+      ul.innerHTML = `<li>Đang tổng hợp góc nhìn từ các cột trong file...</li>`;
+      return;
+    }
+    ul.innerHTML = angles.map((a, idx) => `
+      <li class="ai-angle-item">
+        <span>${escapeHtml(a.label || a.question)}</span>
+        <button type="button" class="ai-angle-add-btn" data-angle-idx="${idx}">+ Thêm câu hỏi</button>
+      </li>
+    `).join("");
+
+    ul.querySelectorAll(".ai-angle-add-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        const idx = Number(btn.dataset.angleIdx);
+        const angle = angles[idx];
+        if (!angle) return;
+        const qBox = $("#ctxAnalysisQuestions");
+        if (qBox) {
+          const existing = qBox.value.split("\n").map(s => s.trim()).filter(Boolean);
+          const qText = angle.question || angle.label;
+          if (!existing.includes(qText)) {
+            existing.push(qText);
+            qBox.value = existing.slice(0, 8).join("\n");
+          }
+        }
+        btn.textContent = "✓ Đã thêm";
+        btn.disabled = true;
+        updateAiUnderstanding();
+      });
+    });
+  }
+
+  function renderDynamicClarifyQuestions(questions) {
+    const container = $("#aiClarifyQuestionsContainer");
+    if (!container) return;
+    state.currentDynamicQuestions = Array.isArray(questions) ? questions : [];
+
+    if (!state.currentDynamicQuestions.length) {
+      container.innerHTML = `<div class="ai-loading-placeholder">Chưa có câu hỏi làm rõ cho file này.</div>`;
+      return;
+    }
+
+    container.innerHTML = state.currentDynamicQuestions.map((q, idx) => {
+      const qId = q.id || `dyn_q_${idx + 1}`;
+      const chips = Array.isArray(q.quick_chips) ? q.quick_chips : [];
+      return `
+        <div class="ai-dynamic-q-card" data-q-card-id="${escapeHtml(qId)}">
+          <div class="ai-q-header-row">
+            <label class="ai-q-label" for="aiDynAns_${escapeHtml(qId)}" style="margin-bottom:0;">
+              ${idx + 1}. ${escapeHtml(q.question)}
+            </label>
+            ${q.source_fact ? `<span class="ai-q-source-tag">${escapeHtml(q.source_fact)}</span>` : ""}
+          </div>
+          ${chips.length ? `
+            <div class="ai-quick-chips mt-1">
+              ${chips.map(ch => `<button type="button" class="ai-quick-chip ai-ans-chip" data-target="aiDynAns_${escapeHtml(qId)}" data-val="${escapeHtml(ch)}">${escapeHtml(ch)}</button>`).join("")}
+            </div>
+          ` : ""}
+          <textarea
+            id="aiDynAns_${escapeHtml(qId)}"
+            class="context-textarea ai-dynamic-answer"
+            data-q-id="${escapeHtml(qId)}"
+            data-q-role="${escapeHtml(q.role || "general")}"
+            data-q-text="${escapeHtml(q.question)}"
+            rows="2"
+            placeholder="Chọn nhanh gợi ý phía trên hoặc nhập trực tiếp yêu cầu của bạn..."
+          >${escapeHtml(q.default_answer || "")}</textarea>
+        </div>
+      `;
+    }).join("");
+
+    // Wire quick-reply chips
+    container.querySelectorAll(".ai-ans-chip").forEach(chip => {
+      chip.addEventListener("click", () => {
+        const targetId = chip.dataset.target;
+        const val = chip.dataset.val || chip.textContent;
+        const ta = document.getElementById(targetId);
+        if (ta) {
+          ta.value = val;
+          // Highlight active chip within the same question card
+          const siblings = chip.parentElement?.querySelectorAll(".ai-ans-chip") || [];
+          siblings.forEach(s => s.classList.remove("active"));
+          chip.classList.add("active");
+          // If user clicks a chip that narrows/changes scope, clear conflicting chat override for that role
+          const role = ta.dataset.qRole;
+          if (state.scopeChatDirectives) {
+            if (role === "period") delete state.scopeChatDirectives.focusPeriod;
+            if (role === "metric") delete state.scopeChatDirectives.focusMetricCol;
+            if (role === "dimension") delete state.scopeChatDirectives.focusGroupValues;
+            if (role === "dimension_switch") delete state.scopeChatDirectives.focusDimCol;
+            if (role === "target") delete state.scopeChatDirectives.targetGoal;
+          }
+          updateAiUnderstanding();
+        }
+      });
+    });
+
+    // Wire typing updates
+    container.querySelectorAll(".ai-dynamic-answer").forEach(ta => {
+      ta.addEventListener("input", () => {
+        updateAiUnderstanding();
+      });
+    });
+  }
+
+  function collectDynamicQAFromUI() {
+    return $$(".ai-dynamic-answer").map(ta => ({
+      id: ta.dataset.qId || "",
+      role: ta.dataset.qRole || "general",
+      question: ta.dataset.qText || "",
+      answer: (ta.value || "").trim()
+    }));
+  }
+
+  function updateAiUnderstanding() {
+    const profile = state.currentFileProfile;
+    const bizType = ($("#ctxBusinessType")?.value || profile?.domainName || "Phân tích dữ liệu kinh doanh").trim();
+    const qText = ($("#ctxAnalysisQuestions")?.value || "").trim();
+    const questions = qText.split("\n").map(q => q.trim()).filter(q => q.length > 0);
+    const qCount = questions.length || 1;
+    const firstQ = questions[0] || "Phân tích chỉ số trọng yếu theo dữ liệu trong file";
+
+    saveBusinessContextFromUI();
+    const directives = state.businessContext?.directives || parseDirectivesFromContext(state.businessContext, profile);
+    renderActiveDirectivesPreview(directives, profile);
+
+    const underEl = $("#aiUnderstandingText");
+    if (underEl) {
+      if (profile) {
+        const m1 = profile.metrics?.[0];
+        const dim1 = profile.dimensions?.[0];
+        const topVal = dim1?.topValues?.[0];
+        underEl.innerHTML =
+          `Tôi đã phân tích file <strong>${escapeHtml(state.parsedDataset?.sourceLabel || "hiện tại")}</strong> ` +
+          `(<strong>${profile.rowCount} dòng · ${profile.headers.length} cột</strong>) thuộc lĩnh vực <strong>${escapeHtml(bizType)}</strong>. ` +
+          `${m1 ? `Chỉ số chính: <strong>${escapeHtml(m1.name)}</strong> (${escapeHtml(m1.isCurr ? formatCurrencyFull(m1.sum) : m1.sum.toLocaleString("vi-VN"))}). ` : ""}` +
+          `${topVal ? `Nhóm nổi bật nhất ở <strong>${escapeHtml(dim1.name)}</strong> là <strong>${escapeHtml(topVal.name)}</strong> (${topVal.pct}%). ` : ""}` +
+          `Dashboard &amp; Báo cáo sẽ bám sát <strong>${qCount} câu hỏi</strong> của bạn, trọng tâm đầu tiên: <em>"${escapeHtml(firstQ)}"</em>.`;
+      } else {
+        underEl.innerHTML = `Bạn muốn phân tích <strong>${escapeHtml(bizType)}</strong> qua <strong>${qCount} câu hỏi</strong>. Trọng tâm đầu tiên là <em>"${escapeHtml(firstQ)}"</em>.`;
+      }
+    }
+  }
+
+  function saveBusinessContextFromUI() {
+    const profile = state.currentFileProfile;
+    const dynamicQA = collectDynamicQAFromUI();
+    const baseCtx = {
+      fileKey: state.businessContextFileKey || "",
+      businessType: $("#ctxBusinessType")?.value?.trim() || profile?.domainName || "Phân tích dữ liệu kinh doanh",
+      extraInfo: $("#ctxExtraInfo")?.value?.trim() || "",
+      analysisQuestions: $("#ctxAnalysisQuestions")?.value?.trim() || "",
+      dynamicQA,
+      clarifyQ1: dynamicQA[0]?.answer || "",
+      clarifyQ2: dynamicQA[1]?.answer || "",
+      clarifyQ3: dynamicQA[2]?.answer || "",
+      clarifyQ4: dynamicQA[3]?.answer || "",
+      chatHistory: (state.scopeChatHistory || []).filter(m => !m.isTyping),
+      chatDirectives: { ...(state.scopeChatDirectives || {}) }
+    };
+    baseCtx.directives = parseDirectivesFromContext(baseCtx, profile, profile?.schema);
+    state.businessContext = baseCtx;
+    state.ignoreScopeGroupFilter = false;
+  }
+
+  let isScopeAiLoading = false;
+  async function refreshInteractiveAiScope(isNextAngle = false) {
+    if (isScopeAiLoading || !state.parsedDataset) return;
+    isScopeAiLoading = true;
+
+    const btn = $("#btnReviewScope");
+    const statusLine = $("#aiScopeStatusLine");
+    const angleBadge = $("#aiScopeAngleBadge");
+    const container = $("#aiClarifyQuestionsContainer");
+
+    if (isNextAngle) {
+      state.scopeIteration = (state.scopeIteration || 0) + 1;
+    }
+
+    const origBtnHtml = btn ? btn.innerHTML : "";
+    if (btn) {
+      btn.disabled = true;
+      btn.innerHTML = `<span class="star-sparkle">✦</span> AI đang đọc file &amp; tạo câu hỏi...`;
+    }
+    if (statusLine) {
+      statusLine.className = "pill pill-amber";
+      statusLine.textContent = "● AI đang rà soát cột, kỳ và phân nhóm trong file...";
+    }
+    if (container && isNextAngle) {
+      container.innerHTML = `<div class="ai-loading-placeholder"><span class="ai-typing-dots"><span></span><span></span><span></span></span> AI đang khai thác góc nhìn #${(state.scopeIteration || 0) + 1} trực tiếp từ nội dung file...</div>`;
+    }
+
+    try {
+      const rows = state.parsedDataset.rows || [];
+      const headers = (state.parsedDataset.headers || Object.keys(rows[0] || {})).filter(k => k !== "__rowNumber" && k !== "__quarantined" && k !== "is_free_email");
+      const schema = detectAdaptiveSchema(rows, headers);
+      const profile = buildFileDataProfile(rows, headers, schema);
+      state.currentFileProfile = profile;
+
+      const prevQuestions = (state.previousScopeQuestions || []).slice(-10);
+      const scopeRes = await agent.generateInteractiveScopeFromFile({
+        datasetLabel: state.parsedDataset.sourceLabel || "Dữ liệu hiện tại",
+        dataProfile: profile,
+        userBusinessType: $("#ctxBusinessType")?.value?.trim() || profile.domainName,
+        userQuestions: $("#ctxAnalysisQuestions")?.value?.trim() || "",
+        iteration: state.scopeIteration || 0,
+        previousQuestions: prevQuestions,
+        llmOptions: getActiveLlmOptions()
+      });
+
+      const newQs = scopeRes.clarifying_questions || [];
+      state.previousScopeQuestions = [...prevQuestions, ...newQs.map(q => q.question)].slice(-16);
+
+      if (angleBadge && scopeRes.angle_badge) {
+        angleBadge.textContent = scopeRes.angle_badge;
+      }
+      renderSuggestedAnglesList(scopeRes.suggested_angles || []);
+      renderDynamicClarifyQuestions(newQs);
+      renderChatQuickPrompts(scopeRes.quick_chat_prompts || []);
+
+      if (scopeRes.understanding && $("#aiUnderstandingText")) {
+        $("#aiUnderstandingText").textContent = scopeRes.understanding;
+      }
+
+      if (!state.scopeChatHistory || state.scopeChatHistory.length === 0) {
+        state.scopeChatHistory = [{
+          role: "ai",
+          text: scopeRes.greeting_message,
+          meta: scopeRes.llm_used ? `AI Agent (${scopeRes.model_used || "Gemini"}) · Vừa đọc xong file` : `AI Agent · Vừa quét xong ${profile.rowCount} dòng`
+        }];
+      } else if (isNextAngle) {
+        state.scopeChatHistory.push({
+          role: "ai",
+          text: `Tôi vừa chuyển sang ${scopeRes.angle_badge || `Góc nhìn #${(state.scopeIteration || 0) + 1}`} với ${newQs.length} câu hỏi mới bám sát dữ liệu trong file "${state.parsedDataset.sourceLabel}". Bạn xem phía trên và chọn/trả lời hoặc nhắn thêm yêu cầu cho tôi nhé!`,
+          meta: `AI Agent · Cập nhật góc nhìn mới`
+        });
+      }
+      renderScopeChatMessages();
+
+      saveBusinessContextFromUI();
+      renderActiveDirectivesPreview(state.businessContext.directives, profile);
+
+      if (statusLine) {
+        statusLine.className = "pill pill-green";
+        statusLine.textContent = scopeRes.llm_used
+          ? `● AI Gemini đã đọc ${profile.rowCount} dòng · ${headers.length} cột (Góc nhìn #${(state.scopeIteration || 0) + 1})`
+          : `● AI đã đọc trực tiếp ${profile.rowCount} dòng · ${headers.length} cột (Góc nhìn #${(state.scopeIteration || 0) + 1})`;
+      }
+    } finally {
+      isScopeAiLoading = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = origBtnHtml || `<span class="star-sparkle">✦</span> Gợi ý câu hỏi mới từ file`;
+      }
+    }
+  }
+
+  let isScopeChatBusy = false;
+  async function handleSendScopeChat(presetText = null) {
+    if (isScopeChatBusy || !state.parsedDataset) return;
+    const input = $("#aiScopeChatInput");
+    const msg = (presetText !== null ? String(presetText) : (input?.value || "")).trim();
+    if (!msg) return;
+    if (input && presetText === null) input.value = "";
+
+    isScopeChatBusy = true;
+    const sendBtn = $("#btnSendScopeChat");
+    if (sendBtn) sendBtn.disabled = true;
+
+    state.scopeChatHistory = state.scopeChatHistory || [];
+    state.scopeChatHistory.push({ role: "user", text: msg, meta: "Bạn · Vừa xong" });
+    state.scopeChatHistory.push({ role: "ai", text: "", isTyping: true });
+    renderScopeChatMessages();
+
+    try {
+      const profile = state.currentFileProfile || buildFileDataProfile(
+        state.parsedDataset.rows || [],
+        (state.parsedDataset.headers || []).filter(k => k !== "__rowNumber" && k !== "__quarantined" && k !== "is_free_email")
+      );
+      state.currentFileProfile = profile;
+
+      const res = await agent.chatWithScopeAgent({
+        message: msg,
+        chatHistory: state.scopeChatHistory.filter(m => !m.isTyping),
+        datasetLabel: state.parsedDataset.sourceLabel || "Dữ liệu hiện tại",
+        dataProfile: profile,
+        currentContext: state.businessContext || {},
+        llmOptions: getActiveLlmOptions()
+      });
+
+      // Remove typing indicator
+      state.scopeChatHistory = state.scopeChatHistory.filter(m => !m.isTyping);
+      state.scopeChatHistory.push({
+        role: "ai",
+        text: res.reply,
+        meta: res.llm_used ? `AI Agent (${res.model_used || "Gemini"})` : `AI Agent · Đối chiếu trực tiếp từ file`
+      });
+
+      // Apply extracted directives into live scope state
+      const ed = res.extracted_directives || {};
+      state.scopeChatDirectives = state.scopeChatDirectives || {};
+      if (ed.focusPeriod) state.scopeChatDirectives.focusPeriod = ed.focusPeriod;
+      if (ed.focusMetricCol) state.scopeChatDirectives.focusMetricCol = ed.focusMetricCol;
+      if (ed.focusDimCol) state.scopeChatDirectives.focusDimCol = ed.focusDimCol;
+      if (Array.isArray(ed.focusGroupValues)) state.scopeChatDirectives.focusGroupValues = ed.focusGroupValues;
+      if (ed.targetGoal) state.scopeChatDirectives.targetGoal = ed.targetGoal;
+
+      if (ed.addQuestion && $("#ctxAnalysisQuestions")) {
+        const existing = $("#ctxAnalysisQuestions").value.split("\n").map(s => s.trim()).filter(Boolean);
+        if (!existing.includes(ed.addQuestion)) {
+          existing.push(ed.addQuestion);
+          $("#ctxAnalysisQuestions").value = existing.slice(0, 8).join("\n");
+        }
+      }
+
+      renderScopeChatMessages();
+      if (Array.isArray(res.follow_up_suggestions) && res.follow_up_suggestions.length) {
+        renderChatQuickPrompts(res.follow_up_suggestions);
+      }
+      updateAiUnderstanding();
+    } finally {
+      isScopeChatBusy = false;
+      if (sendBtn) sendBtn.disabled = false;
+    }
+  }
+
+  function buildDefaultQuestionsFromProfile(profile) {
+    const dim1 = profile.dimensions?.[0];
+    const dim2 = profile.dimensions?.[1];
+    const m1 = profile.metrics?.[0];
+    const m2 = profile.metrics?.[1];
+    const qs = [];
+
+    if (dim1 && m1) {
+      const topSample = dim1.topValues.slice(0, 3).map(v => v.name).join(", ");
+      qs.push(`Trong cột ${dim1.name} (${topSample}), nhóm nào đóng góp ${m1.name} cao nhất và thấp nhất?`);
+    }
+    if (profile.sortedPeriods?.length >= 2 && m1) {
+      qs.push(`Xu hướng ${m1.name} biến động thế nào từ ${profile.periodNames[0]} đến ${profile.periodNames[profile.periodNames.length - 1]}?`);
+    } else if (m1 && m2) {
+      qs.push(`Tương quan giữa ${m1.name} và ${m2.name} theo từng ${dim1?.name || "nhóm"} chênh lệch ra sao?`);
+    } else if (dim2 && m1) {
+      qs.push(`Phân bổ ${m1.name} theo ${dim2.name} có điểm sáng hoặc rủi ro nào cần ưu tiên?`);
+    }
+    if (!qs.length) {
+      qs.push(`Đâu là các chỉ số và phân nhóm nổi bật nhất trong file ${state.parsedDataset?.sourceLabel || "hiện tại"}?`);
+    }
+    return qs.join("\n");
+  }
+
+  function enterBusinessContextStep() {
+    if (!state.parsedDataset || !state.validationResult?.valid) return;
+
+    const rows = state.parsedDataset.rows || [];
+    const headers = (state.parsedDataset.headers || Object.keys(rows[0] || {})).filter(k => k !== "__rowNumber" && k !== "__quarantined" && k !== "is_free_email");
+    const fileKey = `${state.parsedDataset.sourceLabel || "file"}::${rows.length}::${headers.join(",")}`;
+
+    const schema = detectAdaptiveSchema(rows, headers);
+    const profile = buildFileDataProfile(rows, headers, schema);
+    state.currentFileProfile = profile;
+
+    const isNewFile = state.businessContextFileKey !== fileKey;
+    if (isNewFile) {
+      state.businessContextFileKey = fileKey;
+      state.scopeIteration = 0;
+      state.previousScopeQuestions = [];
+      state.scopeChatHistory = [];
+      state.scopeChatDirectives = {};
+      state.ignoreScopeGroupFilter = false;
+
+      if ($("#ctxBusinessType")) $("#ctxBusinessType").value = profile.domainName || "Phân tích dữ liệu kinh doanh";
+      if ($("#ctxExtraInfo")) $("#ctxExtraInfo").value = "";
+      if ($("#ctxAnalysisQuestions")) $("#ctxAnalysisQuestions").value = buildDefaultQuestionsFromProfile(profile);
+
+      refreshInteractiveAiScope(false);
+    } else {
+      updateAiUnderstanding();
+    }
+
+    $("#businessContextSection")?.classList.remove("hidden");
+    $("#cleaningSection")?.classList.add("hidden");
+    $("#processVerifySection")?.classList.add("hidden");
+    $("#resultsSection")?.classList.add("hidden");
+
+    updateWorkflowSteps(2, { validationState: "ok" });
+    $("#businessContextSection")?.scrollIntoView({ behavior: "smooth" });
+  }
+
   // ---- STEP 3: Data Cleaning Gate (Dữ liệu đã sạch và ổn?) ----
   function enterCleaningStep(mode = "standard", shouldScroll = true, skippedMissing = false) {
     if (!state.parsedDataset || !state.validationResult?.valid) return;
+    saveBusinessContextFromUI();
+    $("#businessContextSection")?.classList.add("hidden");
     const prevPasses = state.cleaningState?.passes || 0;
 
     const ruleOptions = {
@@ -934,8 +1666,12 @@
         apiKey: $("#llmApiKey").value.trim()
       };
 
+      const effectiveDataset = (state.cleanedDatasetRows && state.cleanedDatasetRows.length > 0)
+        ? { ...state.parsedDataset, rows: state.cleanedDatasetRows }
+        : state.parsedDataset;
+
       const output = await agent.runAgentPipeline({
-        parsedDataset: state.parsedDataset,
+        parsedDataset: effectiveDataset,
         config: state.config,
         llmOptions,
         feedback: cleanFb,
@@ -1324,8 +2060,13 @@
   function parsePeriodString(val) {
     if (!val) return "(Không có ngày)";
     const str = String(val).trim();
+    // YYYY-MM or YYYY-MM-DD
     const m1 = str.match(/^(\d{4})[-\/.](\d{1,2})/);
     if (m1) return `${m1[1]}-${m1[2].padStart(2, "0")}`;
+    // DD/MM/YYYY or DD-MM-YYYY
+    const m3 = str.match(/^(\d{1,2})[-\/.](\d{1,2})[-\/.](\d{4})/);
+    if (m3) return `${m3[3]}-${m3[2].padStart(2, "0")}`;
+    // MM/YYYY
     const m2 = str.match(/^(\d{1,2})[-\/.](\d{4})/);
     if (m2) return `${m2[2]}-${m2[1].padStart(2, "0")}`;
     return str;
@@ -1338,32 +2079,290 @@
     return String(p);
   }
 
-  function detectBusinessColumns(headers) {
-    const norm = s => (s || "").toLowerCase().replace(/[\s_\(\)\/\-–]/g, "");
-    let colDate = null, colRev = null, colCost = null, colProfit = null, colOrders = null, colChannel = null, colSecondary = null;
+  function getColDisplayName(colKey) {
+    if (!colKey) return "";
+    const map = {
+      thang: "Tháng",
+      bat_dau: "Ngày bắt đầu",
+      batdau: "Ngày bắt đầu",
+      ket_thuc: "Ngày kết thúc",
+      ket_thuc_loai_tru: "Ngày kết thúc",
+      chu_ky_thu: "Chu kỳ thu",
+      so_thang_dich_vu: "Số tháng dịch vụ",
+      tien_thu_truoc_vnd: "Tiền thu trước (VND)",
+      doanh_thu_thang_vnd: "Doanh thu tháng (VND)",
+      tien_te: "Tiền tệ",
+      ma_hop_dong: "Mã hợp đồng",
+      lead_id: "Mã Lead",
+      company_name: "Tên công ty",
+      contact_name: "Người liên hệ",
+      tax_code: "Mã số thuế",
+      phone: "Số điện thoại",
+      email: "Email",
+      need_description: "Nhu cầu",
+      registered_at: "Ngày đăng ký",
+      created_at: "Ngày tạo",
+      source_channel: "Kênh tiếp cận",
+      kenh: "Kênh",
+      region: "Khu vực",
+      khu_vuc: "Khu vực",
+      product_interest: "Sản phẩm",
+      san_pham: "Sản phẩm",
+      chien_dich: "Chiến dịch",
+      industry: "Ngành",
+      doanh_thu_vnd: "Doanh thu (VND)",
+      doanh_thu: "Doanh thu (VND)",
+      budget_vnd: "Ngân sách dự kiến (VND)",
+      chi_phi_gia_von_vnd: "Chi phí giá vốn (VND)",
+      chi_phi: "Chi phí (VND)",
+      loi_nhuan_gop_vnd: "Lợi nhuận gộp (VND)",
+      loi_nhuan: "Lợi nhuận (VND)",
+      so_don: "Số đơn",
+      so_don_hang: "Số đơn hàng",
+      orders: "Số đơn hàng",
+      chuyen_doi: "Chuyển đổi",
+      luot_click: "Lượt click"
+    };
+    if (map[colKey]) return map[colKey];
+    const n = (colKey || "").toLowerCase().replace(/[\s_\(\)\/\-–]/g, "");
+    if (map[n]) return map[n];
+    return String(colKey)
+      .replace(/_/g, " ")
+      .replace(/([a-z])([A-Z])/g, "$1 $2")
+      .replace(/\b\w/g, c => c.toUpperCase());
+  }
 
+  // ---- Polymorphic & Adaptive Dataset Schema Detector ----
+  function detectAdaptiveSchema(rawRows, headers) {
+    const norm = s => (s || "").toLowerCase().replace(/[\s_\(\)\/\-–]/g, "");
+
+    const isDatePattern = v => {
+      if (!v) return false;
+      const s = String(v).trim();
+      return /^\d{4}[-\/.]\d{1,2}([-\/.]\d{1,2})?$/.test(s) ||
+             /^\d{1,2}[-\/.]\d{1,2}[-\/.]\d{2,4}$/.test(s) ||
+             /^\d{1,2}[-\/.]\d{4}$/.test(s);
+    };
+
+    let colDate = null;
+    let colEntity = null;
+    const numericCandidates = [];
+    const categoricalCandidates = [];
+
+    // 1. Date Detection
     for (const h of headers) {
       const n = norm(h);
-      if (!colDate && /^(thang|month|ky|period|ngay|date|registeredat|createdat|thoigian)/.test(n)) colDate = h;
-      else if (!colRev && /(doanhthu|revenue|sales|thanhtien|budgetvnd|budget|ngansach|giatri|sotien)/.test(n)) colRev = h;
-      else if (!colCost && /(chiphi|cost|cogs|giavon|expense)/.test(n)) colCost = h;
-      else if (!colProfit && /(loinhuan|profit|margin|lai)/.test(n)) colProfit = h;
-      else if (!colOrders && /(sodon|orders|count|soluong|quantity|luotclick)/.test(n)) colOrders = h;
-      else if (!colChannel && /(kenh|channel|sourcechannel|nguon)/.test(n)) colChannel = h;
-      else if (!colSecondary && /(sanpham|product|productinterest|chiendich|campaign|nganh|industry)/.test(n)) colSecondary = h;
+      if (/^(batdau|ngaybatdau|thang|month|ky|period|ngay|date|registeredat|createdat|thoigian|nam|year)$/.test(n)) {
+        colDate = h;
+        break;
+      }
     }
-    if (!colChannel) {
-      colChannel = headers.find(h => /(khuvuc|region|diaban|tinh)/.test(norm(h))) || null;
+    if (!colDate) {
+      for (const h of headers) {
+        const n = norm(h);
+        if (/(batdau|thang|month|ky|period|ngay|date|registeredat|createdat|thoigian)/.test(n)) {
+          colDate = h;
+          break;
+        }
+      }
     }
-    return { colDate, colRev, colCost, colProfit, colOrders, colChannel, colSecondary };
+    if (!colDate && rawRows.length > 0) {
+      for (const h of headers) {
+        const sample = rawRows.slice(0, 15).map(r => r[h]).filter(Boolean);
+        if (sample.length && sample.filter(isDatePattern).length >= sample.length * 0.7) {
+          colDate = h;
+          break;
+        }
+      }
+    }
+
+    // 2. Entity / Unique Record ID Detection
+    for (const h of headers) {
+      const n = norm(h);
+      if (/^(mahopdong|sohopdong|contract|contractid|leadid|makhachhang|makh|madon|madonhang|orderid|stt|code|id|uuid)$/.test(n)) {
+        colEntity = h;
+        break;
+      }
+    }
+    if (!colEntity) {
+      for (const h of headers) {
+        const n = norm(h);
+        if (/^(ma|id|code|stt)/.test(n) && !/(trangthai|status|loai|type)/.test(n)) {
+          colEntity = h;
+          break;
+        }
+      }
+    }
+    if (!colEntity && rawRows.length >= 5) {
+      for (const h of headers) {
+        if (h === colDate) continue;
+        const n = norm(h);
+        if (/(mota|desc|ghichu|note|diachi|address|email|phone|sdt)/.test(n)) continue;
+        const vals = rawRows.map(r => String(r[h] ?? "").trim()).filter(Boolean);
+        const uniqueSet = new Set(vals);
+        if (vals.length >= 5 && uniqueSet.size >= vals.length * 0.85) {
+          colEntity = h;
+          break;
+        }
+      }
+    }
+
+    // 3. Numeric & Categorical Column Classification
+    for (const h of headers) {
+      if (h === colDate || h === colEntity) continue;
+      const n = norm(h);
+      const vals = rawRows.map(r => r[h]).filter(v => v !== null && v !== undefined && String(v).trim() !== "");
+      if (!vals.length) continue;
+
+      const numVals = vals.map(v => parseNumeric(v, NaN)).filter(v => !isNaN(v));
+      const numRatio = numVals.length / vals.length;
+
+      if (numRatio >= 0.65) {
+        const sum = numVals.reduce((a, b) => a + b, 0);
+        const avg = sum / (numVals.length || 1);
+        const isCurr = /(vnd|tien|revenue|cost|doanhthu|chiphi|loinhuan|budget|thanhtien|sotien|price|gia|fee|luong)/.test(n) || avg >= 50000;
+        const isCnt = /^(sodon|sodonhang|orders|ordercount|soluong|quantity|luotclick|clicks|chuyendoi|conversions|sothang|thangdichvu|duration)$/.test(n) || (numVals.every(v => Number.isInteger(v)) && avg < 50000);
+        const isRatio = /(rate|pct|percent|tyle|phantram|margin|discount)/.test(n);
+
+        numericCandidates.push({
+          col: h,
+          name: getColDisplayName(h),
+          normKey: n,
+          sum,
+          avg,
+          isCurr,
+          isCnt,
+          isRatio
+        });
+      } else {
+        const uniqueVals = new Set(vals.map(v => String(v).trim()));
+        const isConstantOrCurrency = uniqueVals.size < 2 || /^(tiente|currency|donvi|unit)$/.test(n);
+        if (!isConstantOrCurrency && uniqueVals.size <= Math.max(35, rawRows.length * 0.75)) {
+          categoricalCandidates.push({
+            col: h,
+            name: getColDisplayName(h),
+            normKey: n,
+            distinctCount: uniqueVals.size,
+            sampleValues: Array.from(uniqueVals).slice(0, 5)
+          });
+        }
+      }
+    }
+
+    // 4. Domain Classification
+    let domainType = "custom";
+    let domainName = "Tổng hợp dữ liệu kinh doanh";
+
+    const allNormHeaders = headers.map(norm);
+    const hasContractSignal = allNormHeaders.some(n => /^(mahopdong|sohopdong|contract|chukythu|sothangdichvu|tienthutruocvnd|tienthutruoc)$/.test(n));
+    const hasMarketingSignal = allNormHeaders.some(n => /^(luotclick|clicks|chuyendoi|conversions|cpc|cvr)$/.test(n)) || (allNormHeaders.some(n => /chiendich|campaign/.test(n)) && allNormHeaders.some(n => /chiphi|cost/.test(n)));
+    const hasCrmSignal = allNormHeaders.some(n => /^(leadid|makhachhang|companyname|taxcode|needdescription)$/.test(n));
+    const hasRetailSignal = allNormHeaders.some(n => /^(sodon|sodonhang|orders|ordercount)$/.test(n)) || (allNormHeaders.some(n => /doanhthu|revenue/.test(n)) && allNormHeaders.some(n => /chiphi|cost|loinhuan|profit/.test(n)));
+
+    if (hasContractSignal) {
+      domainType = "contracts";
+      domainName = "Hợp đồng dịch vụ & Thu phí định kỳ";
+    } else if (hasMarketingSignal) {
+      domainType = "marketing";
+      domainName = "Hiệu quả Tiếp thị số (Marketing & Ads)";
+    } else if (hasCrmSignal) {
+      domainType = "crm";
+      domainName = "Quản lý Khách hàng tiềm năng (CRM Leads)";
+    } else if (hasRetailSignal) {
+      domainType = "retail";
+      domainName = "Kinh doanh Bán lẻ & Thương mại";
+    }
+
+    // 5. Categorical Dimension Ranking
+    const rankCategory = (c) => {
+      const n = c.normKey;
+      if (/(chuky|cycle)/.test(n)) return 100;
+      if (/(kenh|channel|source)/.test(n)) return 90;
+      if (/(khuvuc|region|diaban|mien|tinh)/.test(n)) return 80;
+      if (/(sanpham|product|chiendich|campaign|dichvu|service)/.test(n)) return 70;
+      if (/(nganh|industry)/.test(n)) return 60;
+      if (/(trangthai|status)/.test(n)) return 50;
+      return 30 - c.distinctCount;
+    };
+    categoricalCandidates.sort((a, b) => rankCategory(b) - rankCategory(a));
+
+    const colPrimaryDim = categoricalCandidates[0]?.col || null;
+    const colSecondaryDim = categoricalCandidates[1]?.col || null;
+
+    // 6. Numeric Metric Ranking
+    const rankNumeric = (num) => {
+      const n = num.normKey;
+      if (domainType === "contracts") {
+        if (/tienthutruoc/.test(n)) return 100;
+        if (/doanhthuthang/.test(n)) return 90;
+        if (/sothang|duration/.test(n)) return 80;
+      }
+      if (domainType === "retail") {
+        if (/doanhthu|revenue|sales/.test(n)) return 100;
+        if (/loinhuan|profit|margin/.test(n)) return 90;
+        if (/chiphi|cost|giavon/.test(n)) return 80;
+        if (/sodon|orders|quantity/.test(n)) return 70;
+      }
+      if (domainType === "marketing") {
+        if (/chiphi|cost|budget/.test(n)) return 100;
+        if (/click/.test(n)) return 90;
+        if (/chuyendoi|conversion/.test(n)) return 80;
+      }
+      if (domainType === "crm") {
+        if (/budget|ngansach/.test(n)) return 100;
+      }
+      if (num.isCurr) return 50 + (num.sum > 0 ? Math.log10(num.sum) : 0);
+      if (num.isCnt) return 40;
+      return 20;
+    };
+    numericCandidates.sort((a, b) => rankNumeric(b) - rankNumeric(a));
+
+    const colPrimaryMetric = numericCandidates[0]?.col || null;
+    const colSecondaryMetric = numericCandidates[1]?.col || null;
+    const colAuxMetric = numericCandidates[2]?.col || null;
+
+    // Legacy backward-compatibility mappings
+    const colOrders = headers.find(h => /(sodon|sodonhang|orders|ordercount)/.test(norm(h))) || (numericCandidates.find(c => c.isCnt)?.col || null);
+    const colRev = headers.find(h => /(doanhthu|revenue|sales|thanhtien)/.test(norm(h))) || (numericCandidates.find(c => c.isCurr)?.col || colPrimaryMetric);
+    const colCost = headers.find(h => /(chiphi|cost|giavon|cogs)/.test(norm(h))) || null;
+    const colProfit = headers.find(h => /(loinhuan|profit|margin|laigop)/.test(norm(h))) || null;
+
+    return {
+      domainType,
+      domainName,
+      colDate,
+      colEntity,
+      colPrimaryDim,
+      colSecondaryDim,
+      colPrimaryMetric,
+      colSecondaryMetric,
+      colAuxMetric,
+      numericCandidates,
+      categoricalCandidates,
+      colOrders,
+      colRev,
+      colCost,
+      colProfit,
+      colChannel: colPrimaryDim,
+      colSecondary: colSecondaryDim || colPrimaryDim,
+      hasOrdersCol: Boolean(colOrders),
+      hasRevCol: Boolean(colRev),
+      hasCostCol: Boolean(colCost),
+      hasProfitCol: Boolean(colProfit) || (Boolean(colRev) && Boolean(colCost))
+    };
+  }
+
+  function detectBusinessColumns(headers) {
+    return detectAdaptiveSchema([], headers);
   }
 
   async function getDatasetRows(datasetType) {
     if (datasetType === "auto" || !datasetType) {
-      if (state.cleaningState?.cleanedRows?.length) {
+      const cleaned = state.cleanedDatasetRows || state.cleaningState?.result?.cleanedRows || state.cleaningState?.cleanedRows;
+      if (cleaned?.length) {
         return {
-          rows: state.cleaningState.cleanedRows,
-          label: state.parsedDataset?.sourceLabel ? `${state.parsedDataset.sourceLabel} (Đã làm sạch)` : "Dữ liệu hiện tại"
+          rows: cleaned,
+          label: state.parsedDataset?.sourceLabel ? `${state.parsedDataset.sourceLabel} (${cleaned.length} dòng sạch)` : "Dữ liệu hiện tại"
         };
       }
       if (state.parsedDataset?.rows?.length) {
@@ -1372,14 +2371,38 @@
           label: state.parsedDataset.sourceLabel || "Dữ liệu vừa tải"
         };
       }
-      // Fallback: load retail sample
-      return await getDatasetRows("retail");
+      // Fallback: load contracts sample
+      return await getDatasetRows("contracts");
+    }
+
+    const parseCsvToRows = (text) => {
+      const matrix = validator.parseCSV(text);
+      if (Array.isArray(matrix)) {
+        return validator.matrixToObjects(matrix, state.config?.schema || {}).rows || [];
+      }
+      return matrix?.rows || [];
+    };
+
+    if (datasetType === "contracts") {
+      if (!cachedDatasets.contracts) {
+        const text = await fetch("data/27_dich_vu_thang_va_nam.csv").then(r => r.text()).catch(() => "");
+        cachedDatasets.contracts = parseCsvToRows(text);
+      }
+      return { rows: cachedDatasets.contracts, label: "Hợp đồng dịch vụ (27_dich_vu_thang_va_nam.csv)" };
+    }
+
+    if (datasetType === "vertical_rev") {
+      if (!cachedDatasets.vertical_rev) {
+        const text = await fetch("data/11_doanh_thu_bang_doc.csv").then(r => r.text()).catch(() => "");
+        cachedDatasets.vertical_rev = parseCsvToRows(text);
+      }
+      return { rows: cachedDatasets.vertical_rev, label: "Doanh thu bảng dọc (11_doanh_thu_bang_doc.csv)" };
     }
 
     if (datasetType === "retail") {
       if (!cachedDatasets.retail) {
         const text = await fetch("data/sample_retail_kpi.csv").then(r => r.text()).catch(() => "");
-        cachedDatasets.retail = validator.parseCSV(text).rows;
+        cachedDatasets.retail = parseCsvToRows(text);
       }
       return { rows: cachedDatasets.retail, label: "Bán lẻ mẫu (sample_retail_kpi.csv)" };
     }
@@ -1387,7 +2410,7 @@
     if (datasetType === "marketing") {
       if (!cachedDatasets.marketing) {
         const text = await fetch("data/sample_marketing.csv").then(r => r.text()).catch(() => "");
-        cachedDatasets.marketing = validator.parseCSV(text).rows;
+        cachedDatasets.marketing = parseCsvToRows(text);
       }
       return { rows: cachedDatasets.marketing, label: "Marketing mẫu (sample_marketing.csv)" };
     }
@@ -1395,7 +2418,7 @@
     if (datasetType === "crm") {
       if (!cachedDatasets.crm) {
         const text = await fetch("data/sample_normal_and_edge_cases.csv").then(r => r.text()).catch(() => "");
-        cachedDatasets.crm = validator.parseCSV(text).rows;
+        cachedDatasets.crm = parseCsvToRows(text);
       }
       return { rows: cachedDatasets.crm, label: "CRM Khách hàng (sample_normal_and_edge_cases.csv)" };
     }
@@ -1403,32 +2426,262 @@
     return { rows: [], label: "Dữ liệu trống" };
   }
 
-  async function renderBusinessKpiDashboard(datasetType = "auto", period = "auto") {
+  function renderDashboardUserQuestions(qaList, directives, subtitleText = "") {
+    const card = $("#dashUserQuestionsCard");
+    const listEl = $("#dashUserQuestionsList");
+    const badgeEl = $("#dashUserQuestionsBadge");
+    const subEl = $("#dashUserQuestionsSub");
+    if (!card || !listEl) return;
+
+    const items = Array.isArray(qaList) ? qaList.filter(x => x && x.question) : [];
+    if (!items.length) {
+      card.classList.add("hidden");
+      return;
+    }
+
+    card.classList.remove("hidden");
+    if (badgeEl) badgeEl.textContent = `${items.length} câu hỏi đã giải đáp`;
+    if (subEl && subtitleText) subEl.textContent = subtitleText;
+
+    listEl.innerHTML = items.map((qa, i) => `
+      <div class="dash-qa-item">
+        <div class="dash-qa-q">Q${i + 1}. ${escapeHtml(qa.question)}</div>
+        <div class="dash-qa-a">${escapeHtml(qa.answer)}</div>
+        ${qa.evidence ? `<div class="dash-qa-evidence">📌 Dẫn chứng: ${escapeHtml(qa.evidence)}</div>` : ""}
+      </div>
+    `).join("");
+  }
+
+  function computeUserQuestionsAnswers({
+    directives,
+    currRows,
+    normalizedRows,
+    headers,
+    schema,
+    colPrimaryMetric,
+    colSecondaryMetric,
+    primaryMetricLabel,
+    secondaryMetricLabel,
+    dim1Label,
+    dim2Label,
+    dim1DonutList,
+    dim2ContribList,
+    trendMonthsData,
+    currPrimaryTotal,
+    activePeriod,
+    sortedPeriods,
+    blankGroup,
+    datasetLabel
+  }) {
+    const questions = Array.isArray(directives?.userQuestions) ? directives.userQuestions : [];
+    const results = [];
+    const sumField = (rows, field) => rows.reduce((acc, r) => acc + (r.raw ? parseNumeric(r.raw[field], 0) : 0), 0);
+    const top1 = dim1DonutList[0] || null;
+    const low1 = dim1DonutList[dim1DonutList.length - 1] || null;
+    const top2 = dim2ContribList[0] || null;
+    const low2 = dim2ContribList[dim2ContribList.length - 1] || null;
+    const peakM = trendMonthsData.length ? [...trendMonthsData].sort((a, b) => b.rev - a.rev)[0] : null;
+    const troughM = trendMonthsData.length ? [...trendMonthsData].sort((a, b) => a.rev - b.rev)[0] : null;
+    const secTotal = colSecondaryMetric ? sumField(currRows, colSecondaryMetric) : 0;
+
+    questions.forEach(q => {
+      const nq = normalizeViText(q);
+      let answer = "";
+      let evidence = "";
+
+      // Check if question specifically asks about a dimension column in the file
+      const matchedDim = (schema.categoricalCandidates || []).find(d => {
+        const nd = normalizeViText(d.name);
+        const nc = normalizeViText(d.col).replace(/_/g, " ");
+        return (nd.length >= 2 && nq.includes(nd)) || (nc.length >= 2 && nq.includes(nc));
+      });
+
+      // Check if question specifically asks about a metric column in the file
+      const matchedMetric = (schema.numericCandidates || []).find(m => {
+        const nm = normalizeViText(m.name);
+        const nc = normalizeViText(m.col).replace(/_/g, " ");
+        return (nm.length >= 2 && nq.includes(nm)) || (nc.length >= 2 && nq.includes(nc));
+      });
+
+      const targetMetricCol = matchedMetric ? matchedMetric.col : colPrimaryMetric;
+      const targetMetricName = matchedMetric ? matchedMetric.name : primaryMetricLabel;
+      const targetIsCurr = matchedMetric ? matchedMetric.isCurr : true;
+      const fmtVal = (v) => targetIsCurr ? formatCurrencyFull(v) : (Number.isInteger(v) ? v.toLocaleString("vi-VN") : v.toFixed(1).replace(".", ","));
+
+      if (/(xu huong|bien dong|theo thang|cac ky|thang nao|ky nao|tang truong)/i.test(nq) && trendMonthsData.length >= 2) {
+        const firstM = trendMonthsData[0];
+        const lastM = trendMonthsData[trendMonthsData.length - 1];
+        const diffPct = firstM.rev > 0 ? (((lastM.rev - firstM.rev) / firstM.rev) * 100).toFixed(1).replace(".", ",") : "0,0";
+        answer = `Qua ${trendMonthsData.length} kỳ (${formatPeriodName(firstM.month)} → ${formatPeriodName(lastM.month)}), ${primaryMetricLabel} biến động ${lastM.rev >= firstM.rev ? "+" : ""}${diffPct}%. Kỳ cao nhất là ${formatPeriodName(peakM.month)} (${formatCurrencyFull(peakM.rev)}) và thấp nhất là ${formatPeriodName(troughM.month)} (${formatCurrencyFull(troughM.rev)}).`;
+        evidence = `Đỉnh: ${formatPeriodName(peakM.month)} (${peakM.label}) · Cuối kỳ: ${formatPeriodName(lastM.month)} (${lastM.label}, tăng trưởng ${lastM.growth}).`;
+      } else if (/(tuong quan|doi chieu|so sanh giua|ty le giua)/i.test(nq) && colSecondaryMetric && colSecondaryMetric !== colPrimaryMetric) {
+        const ratio = secTotal > 0 ? (currPrimaryTotal / secTotal).toFixed(2).replace(".", ",") : "-";
+        answer = `Trong phạm vi ${formatPeriodName(activePeriod)} (${currRows.length} dòng), tổng ${primaryMetricLabel} đạt ${formatCurrencyFull(currPrimaryTotal)} so với ${secondaryMetricLabel} đạt ${formatCurrencyFull(secTotal)} (tỷ lệ quy đổi ${ratio}x). Nhóm "${top1?.name || "Chủ lực"}" chiếm tỷ trọng lớn nhất (${top1?.pct || 0}%).`;
+        evidence = `${primaryMetricLabel}: ${formatCurrencyFull(currPrimaryTotal)} vs ${secondaryMetricLabel}: ${formatCurrencyFull(secTotal)}.`;
+      } else if (/(thieu|o trong|loi|rui ro|bat thuong)/i.test(nq)) {
+        answer = blankGroup && blankGroup.rowsCount > 0
+          ? `Phát hiện ${blankGroup.rowsCount} dòng bị thiếu thông tin phân loại với tổng giá trị ${formatCurrencyFull(blankGroup.val)}. Ngoài ra nhóm "${top1?.name || ""}" đang chiếm ${top1?.pct || 0}% cần theo dõi rủi ro tập trung.`
+          : `Không phát hiện dòng khuyết nhóm trong phạm vi đang xét (${currRows.length} dòng sạch 100%). Điểm rủi ro cần lưu ý là mức độ tập trung vào nhóm "${top1?.name || "dẫn đầu"}" (${top1?.pct || 0}%).`;
+        evidence = `Số dòng sạch: ${currRows.length} · Tỷ trọng nhóm lớn nhất: ${top1?.pct || 0}%.`;
+      } else if (matchedDim) {
+        const gMap = {};
+        currRows.forEach(r => {
+          const k = String(r.raw?.[matchedDim.col] ?? "").trim() || "(Ô trống)";
+          if (!gMap[k]) gMap[k] = { name: k, val: 0, count: 0 };
+          gMap[k].val += targetMetricCol ? parseNumeric(r.raw?.[targetMetricCol], 0) : 1;
+          gMap[k].count += 1;
+        });
+        const sortedG = Object.values(gMap).sort((a, b) => b.val - a.val);
+        const totalG = Math.max(1, sortedG.reduce((s, x) => s + x.val, 0));
+        const best = sortedG[0];
+        const worst = sortedG[sortedG.length - 1];
+        const bestPct = ((best.val / totalG) * 100).toFixed(1).replace(".", ",");
+        const worstPct = ((worst.val / totalG) * 100).toFixed(1).replace(".", ",");
+        answer = `Theo "${matchedDim.name}", nhóm dẫn đầu về ${targetMetricName} là "${best.name}" với ${fmtVal(best.val)} (chiếm ${bestPct}%, ${best.count} dòng)` +
+          (worst && worst.name !== best.name ? `, trong khi thấp nhất là "${worst.name}" đạt ${fmtVal(worst.val)} (${worstPct}%, ${worst.count} dòng).` : `.`);
+        evidence = sortedG.slice(0, 4).map(g => `${g.name}: ${fmtVal(g.val)} (${((g.val / totalG) * 100).toFixed(1)}%)`).join(" | ");
+      } else {
+        answer = `Trong phạm vi ${formatPeriodName(activePeriod)} (${currRows.length} dòng), tổng ${targetMetricName} đạt ${fmtVal(targetMetricCol ? sumField(currRows, targetMetricCol) : currPrimaryTotal)}. ` +
+          (top1 ? `Nhóm dẫn đầu theo ${dim1Label} là "${top1.name}" (${top1.valText}, chiếm ${top1.pct}%)` : "") +
+          (low1 && low1.name !== top1?.name ? ` và thấp nhất là "${low1.name}" (${low1.valText}, ${low1.pct}%).` : ".");
+        evidence = `File: ${datasetLabel} · ${dim1Label}: ${dim1DonutList.slice(0, 3).map(d => `${d.name} (${d.pct}%)`).join(", ")}.`;
+      }
+
+      results.push({ question: q, answer, evidence });
+    });
+
+    // If user specified a concrete targetGoal, append a dedicated Target Attainment answer card!
+    if (directives?.targetGoal?.value) {
+      const tg = directives.targetGoal;
+      if (tg.type === "amount") {
+        const pctAchieved = tg.value > 0 ? ((currPrimaryTotal / tg.value) * 100).toFixed(1).replace(".", ",") : "0";
+        const gap = currPrimaryTotal - tg.value;
+        results.push({
+          question: `Đối chiếu mục tiêu người dùng đặt ra: ${tg.label}`,
+          answer: gap >= 0
+            ? `ĐÃ ĐẠT & VƯỢT MỤC TIÊU! Thực tế ${primaryMetricLabel} đạt ${formatCurrencyFull(currPrimaryTotal)} (${pctAchieved}% mục tiêu, vượt +${formatCurrencyFull(gap)}).`
+            : `CHƯA ĐẠT MỤC TIÊU: Thực tế ${primaryMetricLabel} đạt ${formatCurrencyFull(currPrimaryTotal)} (${pctAchieved}% mục tiêu), còn thiếu ${formatCurrencyFull(Math.abs(gap))}.`,
+          evidence: `Thực tế: ${formatCurrencyFull(currPrimaryTotal)} / Mục tiêu: ${tg.label} (${formatPeriodName(activePeriod)}).`
+        });
+      } else if (tg.type === "pct") {
+        const targetVal = Math.round(currPrimaryTotal * (1 + tg.value / 100));
+        results.push({
+          question: `Kịch bản mục tiêu tăng trưởng ${tg.label} cho kỳ tiếp theo`,
+          answer: `Với mức nền hiện tại ${formatCurrencyFull(currPrimaryTotal)}, để đạt mục tiêu tăng ${tg.label}, kỳ tiếp theo cần đạt ${formatCurrencyFull(targetVal)} (tăng thêm ${formatCurrencyFull(targetVal - currPrimaryTotal)}).`,
+          evidence: `Nền hiện tại: ${formatCurrencyFull(currPrimaryTotal)} → Đích kỳ tới: ${formatCurrencyFull(targetVal)}.`
+        });
+      }
+    }
+
+    return results;
+  }
+
+  async function renderBusinessKpiDashboard(datasetType = "auto", period = "auto", triggerAgent = true) {
     const dsSelect = $("#dashDatasetFilter");
     if (dsSelect && dsSelect.value !== datasetType) {
       dsSelect.value = datasetType;
     }
 
-    const { rows: rawRows, label: datasetLabel } = await getDatasetRows(datasetType);
-    if (!rawRows || rawRows.length === 0) {
+    const { rows: fullRawRows, label: datasetLabel } = await getDatasetRows(datasetType);
+    if (!fullRawRows || fullRawRows.length === 0) {
       if ($("#dashSubtitleLine")) $("#dashSubtitleLine").textContent = "Chưa có dữ liệu để phân tích.";
       return;
     }
 
-    // Dynamic Column Detection via Heuristics
-    const headers = Object.keys(rawRows[0] || {});
-    const { colDate, colRev, colCost, colProfit, colOrders, colChannel, colSecondary } = detectBusinessColumns(headers);
+    // Adaptive Schema Detection across all available columns
+    const headers = Object.keys(fullRawRows[0] || {}).filter(k => k !== "__rowNumber" && k !== "__quarantined" && k !== "is_free_email");
+    const baseSchema = detectAdaptiveSchema(fullRawRows, headers);
+    const dashProfile = buildFileDataProfile(fullRawRows, headers, baseSchema);
+    state.lastDashboardProfile = dashProfile;
+    state.lastDashboardDatasetType = datasetType;
 
-    // Normalize Rows
+    // Resolve active user directives from Step 2 AI Consultation (when applicable to current dataset)
+    let activeDirectives = null;
+    const hasCtx = Boolean(state.businessContext);
+    const isCtxMatchingDataset = hasCtx && (
+      datasetType === "auto" ||
+      state.businessContext.appliedToDataset === datasetType
+    );
+    if (isCtxMatchingDataset) {
+      activeDirectives = parseDirectivesFromContext(state.businessContext, dashProfile, baseSchema);
+      state.businessContext.directives = activeDirectives;
+    }
+
+    // Apply Group Filter Directive from User <-> AI Consultation (unless user clicked Reset)
+    let rawRows = fullRawRows;
+    let appliedGroupFilter = [];
+    if (activeDirectives && !state.ignoreScopeGroupFilter && activeDirectives.focusGroupValues?.length > 0) {
+      const targetNorms = activeDirectives.focusGroupValues.map(normalizeViText);
+      const catCols = (baseSchema.categoricalCandidates || []).map(c => c.col);
+      if (baseSchema.colEntity && !catCols.includes(baseSchema.colEntity)) catCols.push(baseSchema.colEntity);
+      const filtered = fullRawRows.filter(r =>
+        catCols.some(col => {
+          const nv = normalizeViText(String(r[col] ?? "").trim());
+          return nv && targetNorms.some(t => nv === t || nv.includes(t));
+        })
+      );
+      if (filtered.length > 0) {
+        rawRows = filtered;
+        appliedGroupFilter = activeDirectives.focusGroupValues;
+      }
+    }
+
+    const schema = baseSchema;
+    const { domainType, domainName, colDate, colEntity, colAuxMetric } = schema;
+    const norm = s => (s || "").toLowerCase().replace(/[\s_\(\)\/\-–]/g, "");
+
+    // Apply Priority Metric & Dimension Directives from User <-> AI Consultation
+    let colPrimaryMetric = schema.colPrimaryMetric;
+    let colSecondaryMetric = schema.colSecondaryMetric;
+    let prioritizedMetricCol = null;
+    if (activeDirectives?.focusMetricCol && headers.includes(activeDirectives.focusMetricCol)) {
+      prioritizedMetricCol = activeDirectives.focusMetricCol;
+      if (colPrimaryMetric !== prioritizedMetricCol) {
+        colSecondaryMetric = colPrimaryMetric;
+        colPrimaryMetric = prioritizedMetricCol;
+      }
+    }
+
+    let colDim1 = schema.colPrimaryDim;
+    let colDim2 = schema.colSecondaryDim;
+    if (activeDirectives?.focusDimCol && headers.includes(activeDirectives.focusDimCol)) {
+      if (colDim1 !== activeDirectives.focusDimCol) {
+        colDim2 = colDim1;
+        colDim1 = activeDirectives.focusDimCol;
+      }
+    }
+
+    if (!colDim1 && colEntity) colDim1 = colEntity;
+    if (!colDim2 && colDim1 !== colEntity && colEntity) colDim2 = colEntity;
+
+    const dim1Label = getColDisplayName(colDim1) || "Phân loại chính";
+    const dim2Label = getColDisplayName(colDim2) || dim1Label;
+    const primaryMetricLabel = getColDisplayName(colPrimaryMetric) || "Giá trị (VND)";
+    const secondaryMetricLabel = getColDisplayName(colSecondaryMetric) || primaryMetricLabel;
+
+    // Normalize Rows strictly with detected date & dimensions
     const normalizedRows = rawRows.map(r => {
       const p = colDate ? parsePeriodString(r[colDate]) : "Toàn bộ";
-      const ch = colChannel ? (String(r[colChannel] || "").trim() || "(Ô trống)") : "Kênh chung";
-      const sec = colSecondary ? (String(r[colSecondary] || "").trim() || "(Khác)") : "Chung";
-      const rev = colRev ? parseNumeric(r[colRev], 0) : 0;
-      const cost = colCost ? parseNumeric(r[colCost], 0) : (colRev ? Math.round(rev * 0.58) : 0);
-      const profit = colProfit ? parseNumeric(r[colProfit], rev - cost) : (rev - cost);
-      const orders = colOrders ? Math.max(1, parseNumeric(r[colOrders], 1)) : 1;
-      return { period: p, channel: ch, secondary: sec, rev, cost, profit, orders, raw: r };
+      const d1 = colDim1 ? (String(r[colDim1] ?? "").trim() || "(Ô trống)") : "Nhóm chung";
+      const d2 = colDim2 ? (String(r[colDim2] ?? "").trim() || "(Ô trống)") : d1;
+      const m1 = colPrimaryMetric ? parseNumeric(r[colPrimaryMetric], 0) : 0;
+      const m2 = colSecondaryMetric ? parseNumeric(r[colSecondaryMetric], 0) : 0;
+      const mAux = colAuxMetric ? parseNumeric(r[colAuxMetric], 0) : 0;
+      const entity = colEntity ? String(r[colEntity] ?? "").trim() : "";
+      return {
+        period: p,
+        channel: d1,
+        secondary: d2,
+        primaryVal: m1,
+        secondaryVal: m2,
+        auxVal: mAux,
+        entity,
+        rev: schema.hasRevCol ? parseNumeric(r[schema.colRev], m1) : m1,
+        cost: schema.hasCostCol ? parseNumeric(r[schema.colCost], 0) : 0,
+        profit: schema.hasProfitCol ? parseNumeric(r[schema.colProfit], 0) : 0,
+        orders: schema.hasOrdersCol ? parseNumeric(r[schema.colOrders], 0) : 0,
+        raw: r
+      };
     });
 
     // Extract Periods
@@ -1439,7 +2692,7 @@
     let sortedPeriods = Array.from(periodSet).sort();
     if (sortedPeriods.length === 0) sortedPeriods = ["Toàn bộ"];
 
-    // Update Period Filter Dropdown
+    // Update Period Filter Dropdown (honoring User's AI Scope period preference when period === "auto")
     const periodSelect = $("#dashPeriodFilter");
     if (periodSelect) {
       const existingOptions = Array.from(periodSelect.options).map(o => o.value);
@@ -1456,12 +2709,42 @@
 
       if (period && period !== "auto" && (sortedPeriods.includes(period) || period === "all")) {
         periodSelect.value = period;
+      } else if (activeDirectives?.focusPeriod === "all") {
+        periodSelect.value = "all";
+      } else if (activeDirectives?.focusPeriod && sortedPeriods.includes(activeDirectives.focusPeriod)) {
+        periodSelect.value = activeDirectives.focusPeriod;
       } else {
         periodSelect.value = sortedPeriods[sortedPeriods.length - 1] || "all";
       }
     }
 
     const activePeriod = periodSelect ? periodSelect.value : (sortedPeriods[sortedPeriods.length - 1] || "all");
+
+    // Render Active Scope Directives Bar on Dashboard
+    const dirBar = $("#dashScopeDirectivesBar");
+    if (dirBar) {
+      if (activeDirectives && (activeDirectives.userQuestions.length || appliedGroupFilter.length || prioritizedMetricCol || activeDirectives.focusDimCol || activeDirectives.targetGoal)) {
+        const pills = [`<strong style="font-size:12.5px;color:#92400e;">🎯 Phạm vi AI đang áp dụng:</strong>`];
+        pills.push(`<span class="ai-directive-pill">📅 ${escapeHtml(formatPeriodName(activePeriod))}</span>`);
+        if (prioritizedMetricCol) pills.push(`<span class="ai-directive-pill">📊 Ưu tiên: ${escapeHtml(primaryMetricLabel)}</span>`);
+        if (activeDirectives.focusDimCol) pills.push(`<span class="ai-directive-pill">🏷 Chiều: ${escapeHtml(dim1Label)}</span>`);
+        if (appliedGroupFilter.length) pills.push(`<span class="ai-directive-pill amber">🔍 Lọc nhóm: ${escapeHtml(appliedGroupFilter.join(", "))} (${rawRows.length}/${fullRawRows.length} dòng)</span>`);
+        if (activeDirectives.targetGoal?.label) pills.push(`<span class="ai-directive-pill amber">🎯 Mục tiêu: ${escapeHtml(activeDirectives.targetGoal.label)}</span>`);
+        dirBar.innerHTML = `
+          <div class="ai-directives-preview">${pills.join("")}</div>
+          <div class="btn-group">
+            ${appliedGroupFilter.length ? `<button type="button" id="btnClearDashGroupFilter" class="btn btn-outline btn-sm">✕ Bỏ lọc nhóm (${fullRawRows.length} dòng)</button>` : ""}
+          </div>
+        `;
+        dirBar.classList.remove("hidden");
+        $("#btnClearDashGroupFilter")?.addEventListener("click", () => {
+          state.ignoreScopeGroupFilter = true;
+          renderBusinessKpiDashboard(datasetType, activePeriod, true);
+        });
+      } else {
+        dirBar.classList.add("hidden");
+      }
+    }
 
     // Filter Rows for Current and Previous Period
     let currRows = [];
@@ -1483,156 +2766,497 @@
       }
     }
 
-    // Totals
-    const sumField = (arr, field) => arr.reduce((acc, r) => acc + (r[field] || 0), 0);
-    const currOrders = sumField(currRows, "orders");
-    const currRev = sumField(currRows, "rev");
-    const currCost = sumField(currRows, "cost");
-    const currProfit = sumField(currRows, "profit");
+    // Helper functions for KPI aggregation
+    const sumCol = (rows, field) => rows.reduce((acc, r) => acc + (r.raw ? parseNumeric(r.raw[field], 0) : parseNumeric(r[field], 0)), 0);
+    const avgCol = (rows, field) => {
+      if (!field || !rows.length) return 0;
+      return sumCol(rows, field) / rows.length;
+    };
+    const countDistinctCol = (rows, field) => {
+      if (!field) return rows.length;
+      const set = new Set();
+      rows.forEach(r => {
+        const val = String((r.raw ? r.raw[field] : r[field]) ?? "").trim();
+        if (val) set.add(val);
+      });
+      return set.size || rows.length;
+    };
 
-    const prevOrders = prevRows.length ? sumField(prevRows, "orders") : 0;
-    const prevRev = prevRows.length ? sumField(prevRows, "rev") : 0;
-    const prevCost = prevRows.length ? sumField(prevRows, "cost") : 0;
-    const prevProfit = prevRows.length ? sumField(prevRows, "profit") : 0;
-
-    const calcDelta = (curr, prev) => {
-      if (!prevPeriod || prev === 0) return { text: "Số liệu cơ sở", isPos: true };
+    const calcDeltaPct = (curr, prev, pPeriod) => {
+      if (!pPeriod || prev === 0) return { text: "Số liệu cơ sở", isPos: true };
       const pct = ((curr - prev) / prev) * 100;
       const sign = pct >= 0 ? "+" : "";
       return {
-        text: `${sign}${pct.toFixed(1).replace(".", ",")}% so với ${formatPeriodName(prevPeriod)}`,
+        text: `${sign}${pct.toFixed(1).replace(".", ",")}% so với ${formatPeriodName(pPeriod)}`,
         isPos: pct >= 0
       };
     };
 
-    const dOrders = calcDelta(currOrders, prevOrders);
-    const dRev = calcDelta(currRev, prevRev);
-    const dProfit = calcDelta(currProfit, prevProfit);
-    const dCost = calcDelta(currCost, prevCost);
+    // Construct 4 Polymorphic & Adaptive KPIs matching the dataset
+    const kpis = [];
 
-    // Update Top 4 KPI Cards
+    if (domainType === "contracts") {
+      // 1. Tổng hợp đồng
+      const totalContracts = countDistinctCol(currRows, colEntity || "ma_hop_dong");
+      const prevContracts = prevRows.length ? countDistinctCol(prevRows, colEntity || "ma_hop_dong") : 0;
+      const dContracts = prevPeriod && prevContracts > 0
+        ? `${totalContracts >= prevContracts ? "+" : ""}${(((totalContracts - prevContracts) / prevContracts) * 100).toFixed(1).replace(".", ",")}% so với ${formatPeriodName(prevPeriod)}`
+        : `Toàn bộ ${totalContracts} hợp đồng trong file`;
+      kpis.push({
+        id: "dashKpiOrders", valId: "dashValOrders", deltaId: "dashDeltaOrders",
+        title: "Tổng hợp đồng",
+        value: `${totalContracts.toLocaleString("vi-VN")} HĐ`,
+        unit: "Hợp đồng ghi nhận",
+        delta: dContracts,
+        isPositive: true
+      });
+
+      // 2. Tiền thu trước (VND)
+      const colPre = headers.find(h => /tienthutruoc/i.test(norm(h))) || colPrimaryMetric;
+      const currPre = sumCol(currRows, colPre);
+      const prevPre = prevRows.length ? sumCol(prevRows, colPre) : 0;
+      kpis.push({
+        id: "dashKpiRevenue", valId: "dashValRevenue", deltaId: "dashDeltaRevenue",
+        title: getColDisplayName(colPre) || "Tiền thu trước (VND)",
+        value: formatCurrencyFull(currPre),
+        unit: "Dòng tiền thu trước chu kỳ",
+        delta: calcDeltaPct(currPre, prevPre, prevPeriod).text,
+        isPositive: true
+      });
+
+      // 3. Doanh thu tháng (VND)
+      const colMonthRev = headers.find(h => /doanhthuthang/i.test(norm(h))) || colSecondaryMetric;
+      const currMonthRev = sumCol(currRows, colMonthRev);
+      const prevMonthRev = prevRows.length ? sumCol(prevRows, colMonthRev) : 0;
+      kpis.push({
+        id: "dashKpiProfit", valId: "dashValProfit", deltaId: "dashDeltaProfit",
+        title: getColDisplayName(colMonthRev) || "Doanh thu tháng (VND)",
+        value: formatCurrencyFull(currMonthRev),
+        unit: "Doanh thu định kỳ theo tháng",
+        delta: calcDeltaPct(currMonthRev, prevMonthRev, prevPeriod).text,
+        isPositive: true
+      });
+
+      // 4. Thời hạn dịch vụ TB / Chu kỳ chủ đạo
+      const colDuration = headers.find(h => /sothang|duration/i.test(norm(h))) || colAuxMetric;
+      const avgDur = avgCol(currRows, colDuration);
+      const colCycle = headers.find(h => /chuky/i.test(norm(h))) || colDim1;
+      const cycleCountMap = {};
+      currRows.forEach(r => {
+        const cy = String(r.raw ? r.raw[colCycle] : r[colCycle] ?? "").trim() || "Chung";
+        cycleCountMap[cy] = (cycleCountMap[cy] || 0) + 1;
+      });
+      const topCycleEntry = Object.entries(cycleCountMap).sort((a, b) => b[1] - a[1])[0] || ["Hàng năm", currRows.length];
+      const topCyclePct = ((topCycleEntry[1] / Math.max(1, currRows.length)) * 100).toFixed(1).replace(".", ",");
+      kpis.push({
+        id: "dashKpiCost", valId: "dashValCost", deltaId: "dashDeltaCost",
+        title: "Thời hạn dịch vụ TB",
+        value: avgDur > 0 ? `${avgDur.toFixed(1).replace(".", ",")} tháng` : `${topCycleEntry[0]}`,
+        unit: `Chu kỳ chủ đạo: ${topCycleEntry[0]} (${topCyclePct}%)`,
+        delta: `Trung bình trên ${currRows.length} hợp đồng`,
+        isPositive: true
+      });
+
+    } else if (domainType === "marketing") {
+      const colClicks = headers.find(h => /click/i.test(norm(h))) || colPrimaryMetric;
+      const colCost = headers.find(h => /chiphi|cost/i.test(norm(h))) || colSecondaryMetric;
+      const colConv = headers.find(h => /chuyendoi|conversion/i.test(norm(h))) || colAuxMetric;
+
+      const currClicks = sumCol(currRows, colClicks);
+      const prevClicks = prevRows.length ? sumCol(prevRows, colClicks) : 0;
+      const currCost = sumCol(currRows, colCost);
+      const prevCost = prevRows.length ? sumCol(prevRows, colCost) : 0;
+      const currConv = sumCol(currRows, colConv);
+      const prevConv = prevRows.length ? sumCol(prevRows, colConv) : 0;
+
+      const cvrPct = currClicks > 0 ? ((currConv / currClicks) * 100).toFixed(2).replace(".", ",") : "0,00";
+      const cpcVal = currClicks > 0 ? Math.round(currCost / currClicks) : 0;
+
+      kpis.push({
+        id: "dashKpiOrders", valId: "dashValOrders", deltaId: "dashDeltaOrders",
+        title: "Tổng lượt Click",
+        value: `${currClicks.toLocaleString("vi-VN")} click`,
+        unit: "Lưu lượng tiếp thị ghi nhận",
+        delta: calcDeltaPct(currClicks, prevClicks, prevPeriod).text,
+        isPositive: true
+      });
+      kpis.push({
+        id: "dashKpiRevenue", valId: "dashValRevenue", deltaId: "dashDeltaRevenue",
+        title: "Chi phí Marketing",
+        value: formatCurrencyFull(currCost),
+        unit: "Ngân sách quảng cáo chi tiêu",
+        delta: calcDeltaPct(currCost, prevCost, prevPeriod).text,
+        isPositive: true
+      });
+      kpis.push({
+        id: "dashKpiProfit", valId: "dashValProfit", deltaId: "dashDeltaProfit",
+        title: "Tổng chuyển đổi",
+        value: `${currConv.toLocaleString("vi-VN")} lượt`,
+        unit: "Chuyển đổi thành công",
+        delta: calcDeltaPct(currConv, prevConv, prevPeriod).text,
+        isPositive: true
+      });
+      kpis.push({
+        id: "dashKpiCost", valId: "dashValCost", deltaId: "dashDeltaCost",
+        title: "Tỷ lệ chuyển đổi (CVR)",
+        value: `${cvrPct}%`,
+        unit: `CPC TB: ${cpcVal.toLocaleString("vi-VN")} VND/click`,
+        delta: `Hiệu suất trên ${currClicks.toLocaleString("vi-VN")} click`,
+        isPositive: true
+      });
+
+    } else if (domainType === "crm") {
+      const totalLeads = countDistinctCol(currRows, colEntity || "lead_id");
+      const prevLeads = prevRows.length ? countDistinctCol(prevRows, colEntity || "lead_id") : 0;
+      const colBudget = headers.find(h => /budget|ngansach/i.test(norm(h))) || colPrimaryMetric;
+      const currBudget = sumCol(currRows, colBudget);
+      const prevBudget = prevRows.length ? sumCol(prevRows, colBudget) : 0;
+      const avgBudget = totalLeads > 0 ? Math.round(currBudget / totalLeads) : 0;
+
+      const colPhone = headers.find(h => /phone|sdt/i.test(norm(h)));
+      let validPhoneCount = 0;
+      if (colPhone) {
+        currRows.forEach(r => {
+          const p = String(r.raw ? r.raw[colPhone] : r[colPhone] ?? "").trim();
+          if (p && p.length >= 8) validPhoneCount++;
+        });
+      }
+      const phonePct = totalLeads > 0 ? ((validPhoneCount / totalLeads) * 100).toFixed(1).replace(".", ",") : "100";
+
+      kpis.push({
+        id: "dashKpiOrders", valId: "dashValOrders", deltaId: "dashDeltaOrders",
+        title: "Tổng Leads tiềm năng",
+        value: `${totalLeads.toLocaleString("vi-VN")} Leads`,
+        unit: "Hồ sơ khách hàng tiếp nhận",
+        delta: calcDeltaPct(totalLeads, prevLeads, prevPeriod).text,
+        isPositive: true
+      });
+      kpis.push({
+        id: "dashKpiRevenue", valId: "dashValRevenue", deltaId: "dashDeltaRevenue",
+        title: "Tổng ngân sách dự kiến",
+        value: formatCurrencyFull(currBudget),
+        unit: "Quy mô ngân sách nhu cầu",
+        delta: calcDeltaPct(currBudget, prevBudget, prevPeriod).text,
+        isPositive: true
+      });
+      kpis.push({
+        id: "dashKpiProfit", valId: "dashValProfit", deltaId: "dashDeltaProfit",
+        title: "Ngân sách TB / Lead",
+        value: formatCurrencyFull(avgBudget),
+        unit: "Quy mô trung bình mỗi hồ sơ",
+        delta: `Trung bình trên ${totalLeads} khách hàng`,
+        isPositive: true
+      });
+      kpis.push({
+        id: "dashKpiCost", valId: "dashValCost", deltaId: "dashDeltaCost",
+        title: "Tỷ lệ có Số điện thoại",
+        value: `${phonePct}%`,
+        unit: `${validPhoneCount}/${totalLeads} hồ sơ có SĐT`,
+        delta: "Độ sẵn sàng liên hệ NVKD",
+        isPositive: true
+      });
+
+    } else if (domainType === "retail") {
+      const colOrders = headers.find(h => /^(sodon|orders|soluong)$/i.test(norm(h))) || headers.find(h => /sodon|orders/i.test(norm(h)));
+      const colRev = headers.find(h => /doanhthu|revenue/i.test(norm(h))) || colPrimaryMetric;
+      const colCost = headers.find(h => /chiphi|cost|giavon/i.test(norm(h)));
+      const colProfit = headers.find(h => /loinhuan|profit/i.test(norm(h)));
+
+      const currOrders = colOrders ? sumCol(currRows, colOrders) : currRows.length;
+      const prevOrders = (colOrders && prevRows.length) ? sumCol(prevRows, colOrders) : prevRows.length;
+      const currRev = sumCol(currRows, colRev);
+      const prevRev = prevRows.length ? sumCol(prevRows, colRev) : 0;
+      const currCost = colCost ? sumCol(currRows, colCost) : 0;
+      const prevCost = (colCost && prevRows.length) ? sumCol(prevRows, colCost) : 0;
+      const currProfit = colProfit ? sumCol(currRows, colProfit) : (colCost ? (currRev - currCost) : 0);
+      const prevProfit = (colProfit && prevRows.length) ? sumCol(prevRows, colProfit) : ((colCost && prevRows.length) ? (prevRev - prevCost) : 0);
+
+      kpis.push({
+        id: "dashKpiOrders", valId: "dashValOrders", deltaId: "dashDeltaOrders",
+        title: "Số đơn hàng",
+        value: `${currOrders.toLocaleString("vi-VN")}`,
+        unit: colOrders ? getColDisplayName(colOrders) : "Số đơn",
+        delta: calcDeltaPct(currOrders, prevOrders, prevPeriod).text,
+        isPositive: true
+      });
+      kpis.push({
+        id: "dashKpiRevenue", valId: "dashValRevenue", deltaId: "dashDeltaRevenue",
+        title: "Doanh thu",
+        value: formatCurrencyFull(currRev),
+        unit: getColDisplayName(colRev),
+        delta: calcDeltaPct(currRev, prevRev, prevPeriod).text,
+        isPositive: true
+      });
+      kpis.push({
+        id: "dashKpiProfit", valId: "dashValProfit", deltaId: "dashDeltaProfit",
+        title: "Lợi nhuận",
+        value: formatCurrencyFull(currProfit),
+        unit: colProfit ? getColDisplayName(colProfit) : "Lợi nhuận gộp (VND)",
+        delta: calcDeltaPct(currProfit, prevProfit, prevPeriod).text,
+        isPositive: true
+      });
+      kpis.push({
+        id: "dashKpiCost", valId: "dashValCost", deltaId: "dashDeltaCost",
+        title: "Chi phí",
+        value: formatCurrencyFull(currCost),
+        unit: colCost ? getColDisplayName(colCost) : "Chi phí giá vốn (VND)",
+        delta: calcDeltaPct(currCost, prevCost, prevPeriod).text,
+        isPositive: true
+      });
+
+    } else {
+      // General / Custom File: Calculate strictly meaningful metrics with NO "0 VND (Không có cột)"
+      const mainNum = schema.numericCandidates[0];
+      const secNum = schema.numericCandidates[1];
+      const auxNum = schema.numericCandidates[2];
+
+      const currRowsCount = currRows.length;
+      const prevRowsCount = prevRows.length;
+
+      kpis.push({
+        id: "dashKpiOrders", valId: "dashValOrders", deltaId: "dashDeltaOrders",
+        title: colEntity ? `Tổng ${getColDisplayName(colEntity)}` : "Số bản ghi ghi nhận",
+        value: colEntity ? `${countDistinctCol(currRows, colEntity).toLocaleString("vi-VN")}` : `${currRowsCount.toLocaleString("vi-VN")} dòng`,
+        unit: colEntity ? getColDisplayName(colEntity) : "Dữ liệu kỳ này",
+        delta: calcDeltaPct(currRowsCount, prevRowsCount, prevPeriod).text,
+        isPositive: true
+      });
+
+      if (mainNum) {
+        const currMain = sumCol(currRows, mainNum.col);
+        const prevMain = prevRows.length ? sumCol(prevRows, mainNum.col) : 0;
+        kpis.push({
+          id: "dashKpiRevenue", valId: "dashValRevenue", deltaId: "dashDeltaRevenue",
+          title: mainNum.name,
+          value: mainNum.isCurr ? formatCurrencyFull(currMain) : currMain.toLocaleString("vi-VN"),
+          unit: `Tổng ${mainNum.name}`,
+          delta: calcDeltaPct(currMain, prevMain, prevPeriod).text,
+          isPositive: true
+        });
+
+        if (secNum) {
+          const currSec = sumCol(currRows, secNum.col);
+          const prevSec = prevRows.length ? sumCol(prevRows, secNum.col) : 0;
+          kpis.push({
+            id: "dashKpiProfit", valId: "dashValProfit", deltaId: "dashDeltaProfit",
+            title: secNum.name,
+            value: secNum.isCurr ? formatCurrencyFull(currSec) : currSec.toLocaleString("vi-VN"),
+            unit: `Tổng ${secNum.name}`,
+            delta: calcDeltaPct(currSec, prevSec, prevPeriod).text,
+            isPositive: true
+          });
+        } else {
+          const avgVal = currRowsCount > 0 ? Math.round(currMain / currRowsCount) : 0;
+          kpis.push({
+            id: "dashKpiProfit", valId: "dashValProfit", deltaId: "dashDeltaProfit",
+            title: `Giá trị TB / Bản ghi`,
+            value: mainNum.isCurr ? formatCurrencyFull(avgVal) : avgVal.toLocaleString("vi-VN"),
+            unit: `Trung bình mỗi dòng`,
+            delta: `Số liệu cơ sở`,
+            isPositive: true
+          });
+        }
+
+        if (auxNum) {
+          const currAux = sumCol(currRows, auxNum.col);
+          const prevAux = prevRows.length ? sumCol(prevRows, auxNum.col) : 0;
+          kpis.push({
+            id: "dashKpiCost", valId: "dashValCost", deltaId: "dashDeltaCost",
+            title: auxNum.name,
+            value: auxNum.isCurr ? formatCurrencyFull(currAux) : currAux.toLocaleString("vi-VN"),
+            unit: `Tổng ${auxNum.name}`,
+            delta: calcDeltaPct(currAux, prevAux, prevPeriod).text,
+            isPositive: true
+          });
+        } else {
+          const activeGroups = countDistinctCol(currRows, colDim1);
+          kpis.push({
+            id: "dashKpiCost", valId: "dashValCost", deltaId: "dashDeltaCost",
+            title: `Số nhóm ${dim1Label}`,
+            value: `${activeGroups} nhóm`,
+            unit: `Theo ${dim1Label}`,
+            delta: `Độ phủ danh mục`,
+            isPositive: true
+          });
+        }
+      }
+    }
+
+    // Render Top 4 KPI Cards dynamically into #dashKpiContainer (highlighting user-prioritized metric & accurate +/- delta color)
+    const dashKpiContainer = $("#dashKpiContainer");
+    if (dashKpiContainer) {
+      const nPri = prioritizedMetricCol ? normalizeViText(getColDisplayName(prioritizedMetricCol)) : "";
+      dashKpiContainer.innerHTML = kpis.map(k => {
+        const isNegDelta = String(k.delta || "").trim().startsWith("-");
+        k.isPositive = isNegDelta ? false : (k.isPositive !== false);
+        const isPri = Boolean(nPri && (normalizeViText(k.title).includes(nPri) || nPri.includes(normalizeViText(k.title))));
+        return `
+        <div class="dash-kpi-card ${isPri ? "kpi-prioritized" : ""}" id="${escapeHtml(k.id)}">
+          ${isPri ? `<span class="dash-kpi-priority-badge">Ưu tiên AI</span>` : ""}
+          <div class="dash-kpi-head">${escapeHtml(k.title)}</div>
+          <div class="dash-kpi-num" id="${escapeHtml(k.valId)}">${escapeHtml(k.value)}</div>
+          <div class="dash-kpi-unit">${escapeHtml(k.unit)}</div>
+          <div class="dash-kpi-delta ${k.isPositive ? "positive" : "negative"}" id="${escapeHtml(k.deltaId)}">${escapeHtml(k.delta)}</div>
+        </div>`;
+      }).join("");
+    }
+
+    if ($("#dashCompareCaption")) {
+      if (activeDirectives?.targetGoal?.label) {
+        const currPriVal = sumCol(currRows, colPrimaryMetric || schema.colRev);
+        const tg = activeDirectives.targetGoal;
+        if (tg.type === "amount" && tg.value > 0) {
+          const pct = ((currPriVal / tg.value) * 100).toFixed(1).replace(".", ",");
+          $("#dashCompareCaption").textContent = `🎯 Mục tiêu ${tg.label}: Hiện đạt ${formatCurrencyFull(currPriVal)} (${pct}%) · ${currRows.length} dòng.`;
+        } else {
+          $("#dashCompareCaption").textContent = `🎯 Mục tiêu tăng trưởng ${tg.label} · Nền hiện tại: ${formatCurrencyFull(currPriVal)}.`;
+        }
+      } else {
+        $("#dashCompareCaption").textContent = `Đối chiếu tự động trên ${currRows.length}/${fullRawRows.length} dòng sạch · ${headers.length} cột dữ liệu.`;
+      }
+    }
+
     if ($("#dashSubtitleLine")) {
-      $("#dashSubtitleLine").textContent = `${formatPeriodName(activePeriod)} · ${currRows.length} dòng · ${datasetLabel}`;
+      $("#dashSubtitleLine").textContent = `${formatPeriodName(activePeriod)} · ${currRows.length}/${fullRawRows.length} dòng · ${domainName} (${datasetLabel})`;
     }
     if ($("#dashAgentScanBadge")) {
-      $("#dashAgentScanBadge").innerHTML = `<span class="pulse-beacon"></span> Agent đã rà soát động từ file (${rawRows.length} dòng)`;
-    }
-    if ($("#dashValOrders")) $("#dashValOrders").textContent = currOrders.toLocaleString("vi-VN");
-    if ($("#dashDeltaOrders")) {
-      $("#dashDeltaOrders").textContent = dOrders.text;
-      $("#dashDeltaOrders").className = `dash-kpi-delta ${dOrders.isPos ? "positive" : "negative"}`;
-    }
-    if ($("#dashValRevenue")) $("#dashValRevenue").textContent = formatCurrencyFull(currRev);
-    if ($("#dashDeltaRevenue")) {
-      $("#dashDeltaRevenue").textContent = dRev.text;
-      $("#dashDeltaRevenue").className = `dash-kpi-delta ${dRev.isPos ? "positive" : "negative"}`;
-    }
-    if ($("#dashValProfit")) $("#dashValProfit").textContent = formatCurrencyFull(currProfit);
-    if ($("#dashDeltaProfit")) {
-      $("#dashDeltaProfit").textContent = dProfit.text;
-      $("#dashDeltaProfit").className = `dash-kpi-delta ${dProfit.isPos ? "positive" : "negative"}`;
-    }
-    if ($("#dashValCost")) $("#dashValCost").textContent = formatCurrencyFull(currCost);
-    if ($("#dashDeltaCost")) {
-      $("#dashDeltaCost").textContent = dCost.text;
-      $("#dashDeltaCost").className = `dash-kpi-delta ${dCost.isPos ? "positive" : "negative"}`;
+      $("#dashAgentScanBadge").innerHTML = `<span class="pulse-beacon"></span> Agent rà soát: ${rawRows.length} dòng · ${headers.length} cột`;
     }
 
-    // 1. Monthly Revenue Trend SVG
-    const monthsData = sortedPeriods.map((p, i) => {
+    // 1. CARD 1: Monthly Trend SVG OR Top Ranking Entities
+    const primaryMetricField = colPrimaryMetric || schema.colRev || headers[0];
+    const trendMonthsData = sortedPeriods.map((p, i) => {
       const pRows = normalizedRows.filter(r => r.period === p);
-      const rev = sumField(pRows, "rev");
+      const val = sumCol(pRows, primaryMetricField);
       let growth = "-";
       if (i > 0) {
-        const priorRev = sumField(normalizedRows.filter(r => r.period === sortedPeriods[i - 1]), "rev");
-        if (priorRev > 0) {
-          const g = ((rev - priorRev) / priorRev) * 100;
+        const priorVal = sumCol(normalizedRows.filter(r => r.period === sortedPeriods[i - 1]), primaryMetricField);
+        if (priorVal > 0) {
+          const g = ((val - priorVal) / priorVal) * 100;
           growth = `${g >= 0 ? "+" : ""}${g.toFixed(1).replace(".", ",")}%`;
         }
       }
-      return { month: p, rev, label: formatCompactVND(rev), growth };
+      return { month: p, rev: val, label: formatCompactVND(val), growth };
     });
 
-    if ($("#dashRevenueTrendSvg")) {
-      $("#dashRevenueTrendSvg").innerHTML = buildRevenueTrendSVG(monthsData);
+    if ($("#dashTrendTitle")) {
+      $("#dashTrendTitle").textContent = colDate ? `${primaryMetricLabel} theo thời gian` : `Xếp hạng theo ${primaryMetricLabel}`;
     }
-    if ($("#dashMonthTableCollapsible")) {
-      $("#dashMonthTableCollapsible").innerHTML = `
-        <table class="data-table">
-          <thead>
-            <tr><th>Kỳ</th><th>Doanh thu (VND)</th><th>Tăng trưởng</th></tr>
-          </thead>
-          <tbody>
-            ${monthsData.map(m => `
-              <tr>
-                <td><strong>${formatPeriodName(m.month)}</strong></td>
-                <td>${Math.round(m.rev).toLocaleString("vi-VN")} VND</td>
-                <td><span class="pill ${m.growth.startsWith("+") ? "pill-green" : (m.growth.startsWith("-") ? "pill-amber" : "pill-gray")}">${m.growth}</span></td>
-              </tr>
-            `).join("")}
-          </tbody>
-        </table>
-      `;
+    if ($("#dashTrendHint")) {
+      $("#dashTrendHint").textContent = colDate
+        ? `${primaryMetricLabel} · ${sortedPeriods.length} kỳ đối chiếu`
+        : `Top các bản ghi / thực thể có giá trị lớn nhất`;
     }
 
-    // 2. Cost Breakdown Donut
-    const channelCostMap = {};
-    const channelRevMap = {};
+    if (colDate && sortedPeriods.length >= 1) {
+      if ($("#dashRevenueTrendSvg")) {
+        $("#dashRevenueTrendSvg").innerHTML = buildRevenueTrendSVG(trendMonthsData);
+      }
+      if ($("#dashMonthTableCollapsible")) {
+        $("#dashMonthTableCollapsible").innerHTML = `
+          <table class="data-table">
+            <thead>
+              <tr><th>Kỳ</th><th>${escapeHtml(primaryMetricLabel)}</th><th>Tăng trưởng</th></tr>
+            </thead>
+            <tbody>
+              ${trendMonthsData.map(m => `
+                <tr>
+                  <td><strong>${formatPeriodName(m.month)}</strong></td>
+                  <td>${Math.round(m.rev).toLocaleString("vi-VN")} VND</td>
+                  <td><span class="pill ${m.growth.startsWith("+") ? "pill-green" : (m.growth.startsWith("-") ? "pill-amber" : "pill-gray")}">${m.growth}</span></td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        `;
+      }
+    } else {
+      // If no date column, render top records ranked by primary metric
+      const topEntities = rawRows
+        .map((r, i) => ({
+          name: colEntity ? String(r[colEntity] ?? `Dòng ${i + 1}`).trim() : `Dòng ${i + 1}`,
+          val: parseNumeric(r[primaryMetricField], 0)
+        }))
+        .sort((a, b) => b.val - a.val)
+        .slice(0, 8);
+      const maxEntityVal = Math.max(1, ...topEntities.map(e => e.val));
+      const entityBars = topEntities.map(e => ({
+        name: e.name,
+        val: e.val,
+        valText: formatCurrencyFull(e.val),
+        pct: Math.min(100, Math.round((e.val / maxEntityVal) * 100))
+      }));
+      if ($("#dashRevenueTrendSvg")) $("#dashRevenueTrendSvg").innerHTML = buildRevenueContribBarsHTML(entityBars);
+      if ($("#dashMonthTableCollapsible")) $("#dashMonthTableCollapsible").innerHTML = `<p class="hint">Đang hiển thị 8 thực thể dẫn đầu theo ${escapeHtml(primaryMetricLabel)}.</p>`;
+    }
+
+    // 2. CARD 2: Donut Breakdown by Primary Dimension (e.g. chu_ky_thu, kenh, khu_vuc)
+    const dim1ValMap = {};
     currRows.forEach(r => {
-      channelCostMap[r.channel] = (channelCostMap[r.channel] || 0) + r.cost;
-      channelRevMap[r.channel] = (channelRevMap[r.channel] || 0) + r.rev;
+      const k = r.channel || "(Ô trống)";
+      dim1ValMap[k] = (dim1ValMap[k] || 0) + r.primaryVal;
     });
 
-    const palette = ["#0f766e", "#2dd4bf", "#84cc16", "#f59e0b", "#6366f1", "#ec4899", "#8b5cf6", "#14b8a6"];
-    const totalCostCurr = Math.max(1, sumField(currRows, "cost"));
-    const costChannels = Object.entries(channelCostMap)
-      .map(([name, val], idx) => {
-        const pct = ((val / totalCostCurr) * 100).toFixed(1);
-        return {
-          name,
-          val,
-          valText: formatCurrencyFull(val),
-          pct: parseFloat(pct),
-          color: palette[idx % palette.length]
-        };
-      })
+    const palette = ["#d97706", "#111827", "#f59e0b", "#78350f", "#eab308", "#4b5563", "#b45309", "#9ca3af"];
+    const totalDim1Curr = Math.max(1, Object.values(dim1ValMap).reduce((a, b) => a + b, 0));
+    const dim1DonutList = Object.entries(dim1ValMap)
+      .map(([name, val], idx) => ({
+        name,
+        val,
+        valText: formatCurrencyFull(val),
+        pct: parseFloat(((val / totalDim1Curr) * 100).toFixed(1)),
+        color: palette[idx % palette.length]
+      }))
       .sort((a, b) => b.val - a.val);
 
+    if ($("#dashDonutTitle")) $("#dashDonutTitle").textContent = `Cơ cấu ${primaryMetricLabel.toLowerCase()}`;
+    if ($("#dashDonutHint")) $("#dashDonutHint").textContent = `Theo ${dim1Label} (${formatPeriodName(activePeriod)})`;
     if ($("#dashCostDonutChart")) {
-      $("#dashCostDonutChart").innerHTML = buildCostDonutHTML(costChannels.length ? costChannels : [
-        { name: "Chung", val: currCost, valText: formatCurrencyFull(currCost), pct: 100, color: "#0f766e" }
+      $("#dashCostDonutChart").innerHTML = buildCostDonutHTML(dim1DonutList.length ? dim1DonutList : [
+        { name: "Chung", val: totalDim1Curr, valText: formatCurrencyFull(totalDim1Curr), pct: 100, color: "#d97706" }
       ]);
     }
 
-    // 3. Revenue Contribution Horizontal Bars
-    const maxRevChannel = Math.max(1, ...Object.values(channelRevMap));
-    const revContrib = Object.entries(channelRevMap)
+    // 3. CARD 3: Contribution Horizontal Bars (by Secondary Dimension or Top Entities)
+    const dim2ValMap = {};
+    currRows.forEach(r => {
+      const k = r.secondary || r.channel || "(Ô trống)";
+      dim2ValMap[k] = (dim2ValMap[k] || 0) + r.primaryVal;
+    });
+    const maxDim2Val = Math.max(1, ...Object.values(dim2ValMap));
+    const dim2ContribList = Object.entries(dim2ValMap)
       .map(([name, val]) => ({
         name,
         val,
         valText: formatCurrencyFull(val),
-        pct: Math.min(100, Math.round((val / maxRevChannel) * 100))
+        pct: Math.min(100, Math.round((val / maxDim2Val) * 100))
       }))
       .sort((a, b) => b.val - a.val);
 
+    if ($("#dashContribTitle")) $("#dashContribTitle").textContent = `Đóng góp ${primaryMetricLabel.toLowerCase()}`;
+    if ($("#dashContribHint")) $("#dashContribHint").textContent = `Theo ${dim2Label} (${formatPeriodName(activePeriod)})`;
+    if ($("#dashContribFooter")) $("#dashContribFooter").textContent = `${dim2ContribList.length} nhóm theo giá trị giảm dần.`;
     if ($("#dashRevenueContribBars")) {
-      $("#dashRevenueContribBars").innerHTML = buildRevenueContribBarsHTML(revContrib);
+      $("#dashRevenueContribBars").innerHTML = buildRevenueContribBarsHTML(dim2ContribList);
     }
 
-    // 4. Variance Waterfall Bars
+    // 4. CARD 4: Comparative Analysis & Variance
     let varianceItems = [];
+    const currPrimaryTotal = sumCol(currRows, colPrimaryMetric || schema.colRev);
+    const prevPrimaryTotal = prevRows.length ? sumCol(prevRows, colPrimaryMetric || schema.colRev) : 0;
+
     if (prevPeriod && prevRows.length) {
-      const prevChannelRevMap = {};
+      const prevDim1ValMap = {};
       prevRows.forEach(r => {
-        prevChannelRevMap[r.channel] = (prevChannelRevMap[r.channel] || 0) + r.rev;
+        prevDim1ValMap[r.channel] = (prevDim1ValMap[r.channel] || 0) + r.primaryVal;
       });
-      const allChs = new Set([...Object.keys(channelRevMap), ...Object.keys(prevChannelRevMap)]);
+      const allDim1Keys = new Set([...Object.keys(dim1ValMap), ...Object.keys(prevDim1ValMap)]);
       const diffList = [];
-      allChs.forEach(ch => {
-        const cVal = channelRevMap[ch] || 0;
-        const pVal = prevChannelRevMap[ch] || 0;
+      allDim1Keys.forEach(k => {
+        const cVal = dim1ValMap[k] || 0;
+        const pVal = prevDim1ValMap[k] || 0;
         const diff = cVal - pVal;
-        diffList.push({ name: ch, diff, absDiff: Math.abs(diff) });
+        diffList.push({ name: k, diff, absDiff: Math.abs(diff) });
       });
       diffList.sort((a, b) => b.absDiff - a.absDiff);
       const maxAbs = Math.max(1, diffList[0]?.absDiff || 1);
@@ -1643,116 +3267,167 @@
         isPositive: it.diff >= 0
       }));
 
-      if ($("#dashVarianceSub")) {
-        $("#dashVarianceSub").textContent = `${formatPeriodName(prevPeriod)} → ${formatPeriodName(activePeriod)} · Kênh`;
-      }
+      if ($("#dashVarianceTitle")) $("#dashVarianceTitle").textContent = `Nhóm làm thay đổi ${primaryMetricLabel.toLowerCase()}`;
+      if ($("#dashVarianceSub")) $("#dashVarianceSub").textContent = `${formatPeriodName(prevPeriod)} → ${formatPeriodName(activePeriod)} · ${dim1Label}`;
       if ($("#dashVarianceNote")) {
-        const totalDiff = currRev - prevRev;
-        $("#dashVarianceNote").textContent = `Từ ${formatCurrencyFull(prevRev)} đến ${formatCurrencyFull(currRev)} · Thay đổi ${totalDiff >= 0 ? "+" : ""}${formatCurrencyFull(totalDiff)}`;
+        const totalDiff = currPrimaryTotal - prevPrimaryTotal;
+        $("#dashVarianceNote").textContent = `Từ ${formatCurrencyFull(prevPrimaryTotal)} đến ${formatCurrencyFull(currPrimaryTotal)} · Thay đổi ${totalDiff >= 0 ? "+" : ""}${formatCurrencyFull(totalDiff)}`;
       }
+      if ($("#dashVarianceFooter")) $("#dashVarianceFooter").textContent = `${varianceItems.length} nhóm theo độ lớn thay đổi. Thanh tím biểu thị giá trị âm theo độ lớn tuyệt đối.`;
     } else {
-      const avgRev = currRev / Math.max(1, revContrib.length);
-      varianceItems = revContrib.map(it => {
-        const diff = it.val - avgRev;
-        return {
-          name: it.name,
-          valText: `${diff >= 0 ? "+" : ""}${formatCurrencyFull(diff)}`,
-          pct: Math.min(100, Math.round((Math.abs(diff) / Math.max(1, maxRevChannel)) * 100)),
-          isPositive: diff >= 0
-        };
-      });
-      if ($("#dashVarianceSub")) $("#dashVarianceSub").textContent = `Độ lệch so với mức trung bình kênh (${formatCurrencyFull(avgRev)})`;
-      if ($("#dashVarianceNote")) $("#dashVarianceNote").textContent = `Kỳ hiện hành đạt ${formatCurrencyFull(currRev)} trên ${revContrib.length} kênh phân phối.`;
+      // Single period: Compare 2 numeric metrics if available (e.g. Tien thu truoc vs Doanh thu thang), or compare to mean
+      if (colSecondaryMetric && colSecondaryMetric !== colPrimaryMetric) {
+        if ($("#dashVarianceTitle")) $("#dashVarianceTitle").textContent = `Đối chiếu: ${primaryMetricLabel} vs ${secondaryMetricLabel}`;
+        if ($("#dashVarianceSub")) $("#dashVarianceSub").textContent = `Theo ${dim1Label} (${formatPeriodName(activePeriod)})`;
+        const totalSec = sumCol(currRows, colSecondaryMetric);
+        if ($("#dashVarianceNote")) {
+          $("#dashVarianceNote").textContent = `Tổng ${primaryMetricLabel}: ${formatCurrencyFull(currPrimaryTotal)} · Tổng ${secondaryMetricLabel}: ${formatCurrencyFull(totalSec)}`;
+        }
+        varianceItems = dim1DonutList.map(d => {
+          const secVal = currRows.filter(r => r.channel === d.name).reduce((acc, r) => acc + r.secondaryVal, 0);
+          return {
+            name: d.name,
+            valText: `${formatCompactVND(d.val)} / ${formatCompactVND(secVal)}`,
+            pct: d.pct,
+            isPositive: d.val >= secVal
+          };
+        });
+        if ($("#dashVarianceFooter")) $("#dashVarianceFooter").textContent = `Đối chiếu tỷ trọng dòng tiền và doanh thu định kỳ theo từng nhóm.`;
+      } else {
+        const avgVal = currPrimaryTotal / Math.max(1, dim2ContribList.length);
+        varianceItems = dim2ContribList.map(it => {
+          const diff = it.val - avgVal;
+          return {
+            name: it.name,
+            valText: `${diff >= 0 ? "+" : ""}${formatCurrencyFull(diff)}`,
+            pct: Math.min(100, Math.round((Math.abs(diff) / Math.max(1, maxDim2Val)) * 100)),
+            isPositive: diff >= 0
+          };
+        });
+        if ($("#dashVarianceTitle")) $("#dashVarianceTitle").textContent = `Độ lệch so với mức trung bình ${dim1Label.toLowerCase()}`;
+        if ($("#dashVarianceSub")) $("#dashVarianceSub").textContent = `Mức bình quân: ${formatCurrencyFull(avgVal)}`;
+        if ($("#dashVarianceNote")) $("#dashVarianceNote").textContent = `Kỳ hiện hành đạt ${formatCurrencyFull(currPrimaryTotal)} trên ${dim2ContribList.length} nhóm.`;
+        if ($("#dashVarianceFooter")) $("#dashVarianceFooter").textContent = `${varianceItems.length} nhóm theo độ lệch tuyệt đối.`;
+      }
     }
 
     if ($("#dashVarianceBars")) {
       $("#dashVarianceBars").innerHTML = buildVarianceBarsHTML(varianceItems);
     }
 
-    // SECTION 2: Phân tích chuyên đề (Thematic Analysis)
-    const allChannelRevMap = {};
-    const allChannelRowsMap = {};
+    // SECTION 2: Phân tích chuyên đề (Thematic Analysis across full dataset)
+    const allDim1ValMap = {};
+    const allDim1RowsMap = {};
     normalizedRows.forEach(r => {
-      allChannelRevMap[r.channel] = (allChannelRevMap[r.channel] || 0) + r.rev;
-      allChannelRowsMap[r.channel] = (allChannelRowsMap[r.channel] || 0) + 1;
+      allDim1ValMap[r.channel] = (allDim1ValMap[r.channel] || 0) + r.primaryVal;
+      allDim1RowsMap[r.channel] = (allDim1RowsMap[r.channel] || 0) + 1;
     });
-    const maxAllRev = Math.max(1, ...Object.values(allChannelRevMap));
-    const allTopicRev = Object.entries(allChannelRevMap)
+    const totalAllPrimary = sumCol(normalizedRows, colPrimaryMetric || schema.colRev);
+    const totalAllSecondary = colSecondaryMetric ? sumCol(normalizedRows, colSecondaryMetric) : 0;
+    const maxAllDim1 = Math.max(1, ...Object.values(allDim1ValMap));
+    const allTopicDim1 = Object.entries(allDim1ValMap)
       .map(([name, val]) => ({
         name,
         val,
         valText: formatCurrencyFull(val),
-        pct: Math.min(100, Math.round((val / maxAllRev) * 100)),
-        rowsCount: allChannelRowsMap[name] || 0
+        pct: Math.min(100, Math.round((val / maxAllDim1) * 100)),
+        sharePct: totalAllPrimary > 0 ? Number(((val / totalAllPrimary) * 100).toFixed(1)) : 0,
+        rowsCount: allDim1RowsMap[name] || 0
       }))
       .sort((a, b) => b.val - a.val);
 
-    if ($("#dashTopicRevBars")) $("#dashTopicRevBars").innerHTML = buildRevenueContribBarsHTML(allTopicRev);
+    const topPrimaryGroup = allTopicDim1[0] || { name: "Chung", val: 0, sharePct: 0, rowsCount: 0 };
+    const blankGroup = allTopicDim1.find(c => c.name.includes("Ô trống") || c.name === "") || null;
 
-    const topChannel = allTopicRev[0] || { name: "Chung", val: 0, rowsCount: 0 };
-    const totalAllRev = sumField(normalizedRows, "rev");
-    const totalAllCost = sumField(normalizedRows, "cost");
-    const blankChannel = allTopicRev.find(c => c.name.includes("Ô trống") || c.name === "") || null;
+    if ($("#dashTopic1Title")) $("#dashTopic1Title").textContent = `${primaryMetricLabel} theo ${dim1Label} (${normalizedRows.length} dòng)`;
+    if ($("#dashTopic1CardHeader")) $("#dashTopic1CardHeader").textContent = `Tổng · ${primaryMetricLabel}`;
+    if ($("#dashTopic1CardSub")) $("#dashTopic1CardSub").textContent = `${datasetLabel} · ${dim1Label}`;
+    if ($("#dashTopic1Footer")) $("#dashTopic1Footer").textContent = `${allTopicDim1.length} nhóm theo giá trị giảm dần.`;
+    if ($("#dashTopicRevBars")) $("#dashTopicRevBars").innerHTML = buildRevenueContribBarsHTML(allTopicDim1);
 
     if ($("#dashTopicRevInsight")) {
       $("#dashTopicRevInsight").textContent =
-        `Bộ dữ liệu "${datasetLabel}" · Nhóm "${topChannel.name}" có tổng "Doanh thu (VND)" cao nhất trong ${allTopicRev.length} nhóm theo "Kênh" (${formatCurrencyFull(topChannel.val)}). Cột này có số liệu ở ${topChannel.rowsCount}/${normalizedRows.length} dòng.`;
+        `Nhóm "${topPrimaryGroup.name}" dẫn đầu theo ${dim1Label}: ${formatCurrencyFull(topPrimaryGroup.val)} (${topPrimaryGroup.sharePct}% toàn bộ · ${topPrimaryGroup.rowsCount}/${normalizedRows.length} dòng).`;
     }
 
-    if ($("#dashTopicCogsBanner")) {
-      $("#dashTopicCogsBanner").innerHTML = `
-        <strong>Chi phí giá vốn (VND)</strong>
-        <p>Bộ dữ liệu "${datasetLabel}" · Tổng "Chi phí giá vốn (VND)" là ${formatCurrencyFull(totalAllCost)}. Cột này có số liệu ở ${normalizedRows.length}/${normalizedRows.length} dòng.</p>
-      `;
-    }
-
-    // Secondary Dimension (Product / Campaign)
-    const secCostMap = {};
-    const secRowsMap = {};
+    // Topic 2: Secondary Metric or Secondary Dimension
+    const allDim2ValMap = {};
+    const allDim2RowsMap = {};
     normalizedRows.forEach(r => {
-      secCostMap[r.secondary] = (secCostMap[r.secondary] || 0) + r.cost;
-      secRowsMap[r.secondary] = (secRowsMap[r.secondary] || 0) + 1;
+      allDim2ValMap[r.secondary] = (allDim2ValMap[r.secondary] || 0) + (colSecondaryMetric ? r.secondaryVal : r.primaryVal);
+      allDim2RowsMap[r.secondary] = (allDim2RowsMap[r.secondary] || 0) + 1;
     });
-    const maxSecCost = Math.max(1, ...Object.values(secCostMap));
-    const secList = Object.entries(secCostMap)
+    const totalAllDim2 = Math.max(1, Object.values(allDim2ValMap).reduce((a, b) => a + b, 0));
+    const maxAllDim2 = Math.max(1, ...Object.values(allDim2ValMap));
+    const allTopicDim2 = Object.entries(allDim2ValMap)
       .map(([name, val]) => ({
         name,
         val,
         valText: formatCurrencyFull(val),
-        pct: Math.min(100, Math.round((val / maxSecCost) * 100)),
-        rowsCount: secRowsMap[name] || 0
+        pct: Math.min(100, Math.round((val / maxAllDim2) * 100)),
+        sharePct: Number(((val / totalAllDim2) * 100).toFixed(1)),
+        rowsCount: allDim2RowsMap[name] || 0
       }))
       .sort((a, b) => b.val - a.val);
 
-    if ($("#dashTopicMktBars")) $("#dashTopicMktBars").innerHTML = buildRevenueContribBarsHTML(secList);
+    const topSecondaryGroup = allTopicDim2[0] || { name: "Chung", val: 0, rowsCount: 0 };
+    const topic2MetricLabel = colSecondaryMetric ? secondaryMetricLabel : primaryMetricLabel;
 
-    const topSec = secList[0] || { name: "Chung", val: 0, rowsCount: 0 };
+    if ($("#dashTopic2Title")) $("#dashTopic2Title").textContent = `${topic2MetricLabel} theo ${dim2Label} (Toàn bộ ${normalizedRows.length} dòng)`;
+    if ($("#dashTopic2CardHeader")) $("#dashTopic2CardHeader").textContent = `Tổng · ${topic2MetricLabel}`;
+    if ($("#dashTopic2CardSub")) $("#dashTopic2CardSub").textContent = `${datasetLabel} · ${dim2Label}`;
+    if ($("#dashTopic2Footer")) $("#dashTopic2Footer").textContent = `${allTopicDim2.length} nhóm theo giá trị giảm dần.`;
+
+    if ($("#dashTopicCogsBanner")) {
+      $("#dashTopicCogsBanner").innerHTML = `
+        <strong>Rà Soát Dữ Liệu Thực Tế: ${escapeHtml(domainName)}</strong>
+        <p>Bộ dữ liệu <strong>${escapeHtml(datasetLabel)}</strong> (${headers.length} cột) · Hệ thống phân tích chéo theo <strong>${escapeHtml(dim1Label)}</strong> và <strong>${escapeHtml(dim2Label)}</strong> trên <strong>${normalizedRows.length}/${normalizedRows.length} dòng hợp lệ</strong>.</p>
+      `;
+    }
+
+    if ($("#dashTopicMktBars")) $("#dashTopicMktBars").innerHTML = buildRevenueContribBarsHTML(allTopicDim2);
     if ($("#dashTopicMktInsight")) {
       $("#dashTopicMktInsight").textContent =
-        `Bộ dữ liệu "${datasetLabel}" · Nhóm "${topSec.name}" có tổng "Chi phí" cao nhất trong ${secList.length} nhóm theo "${colSecondary || "Phân loại"}" (${formatCurrencyFull(topSec.val)}). Cột này có số liệu ở ${topSec.rowsCount}/${normalizedRows.length} dòng.`;
+        `Bộ dữ liệu "${datasetLabel}" · Nhóm "${topSecondaryGroup.name}" dẫn đầu về "${topic2MetricLabel}" trong ${allTopicDim2.length} nhóm theo "${dim2Label}" (${formatCurrencyFull(topSecondaryGroup.val)}). Nhóm này có số liệu ở ${topSecondaryGroup.rowsCount}/${normalizedRows.length} dòng.`;
     }
 
     // SECTION 3: Dynamic Conclusions & Action Recommendations
-    const grossMarginPct = totalAllRev > 0 ? (((totalAllRev - totalAllCost) / totalAllRev) * 100).toFixed(1) : "0";
     const topVariance = varianceItems[0] || null;
 
     if ($("#dashConclusionList")) {
-      const conclusions = [
-        `Bộ dữ liệu "${datasetLabel}" · Nhóm "${topChannel.name}" có tổng "Doanh thu (VND)" cao nhất trong ${allTopicRev.length} nhóm theo "Kênh" (${formatCurrencyFull(topChannel.val)}). Cột này có số liệu ở ${topChannel.rowsCount}/${normalizedRows.length} dòng.`,
-        `Bộ dữ liệu "${datasetLabel}" · Tổng "Chi phí giá vốn (VND)" là ${formatCurrencyFull(totalAllCost)}, biên lợi nhuận gộp trung bình toàn kỳ đạt ${grossMarginPct}%.`,
-      ];
-      if (prevPeriod) {
+      const conclusions = [];
+      conclusions.push(
+        `Phân loại "${dim1Label}": Nhóm "${topPrimaryGroup.name}" đạt tổng "${primaryMetricLabel}" cao nhất (${formatCurrencyFull(topPrimaryGroup.val)}, chiếm ${totalAllPrimary > 0 ? ((topPrimaryGroup.val / totalAllPrimary) * 100).toFixed(1) : 100}% toàn bộ ${normalizedRows.length} dòng).`,
+        `Phân loại "${dim2Label}": Nhóm "${topSecondaryGroup.name}" đứng đầu với tổng "${topic2MetricLabel}" đạt ${formatCurrencyFull(topSecondaryGroup.val)} qua ${topSecondaryGroup.rowsCount} bản ghi.`
+      );
+
+      if (domainType === "contracts") {
         conclusions.push(
-          `${datasetLabel} · Doanh thu ${formatPeriodName(activePeriod)} ${currRev >= prevRev ? "tăng" : "giảm"} so với ${formatPeriodName(prevPeriod)} ${formatCurrencyFull(Math.abs(currRev - prevRev))} (${dRev.text.split(" ")[0]}). ${topVariance ? `Nhóm "${topVariance.name}" thay đổi nhiều nhất theo độ lớn, ${topVariance.isPositive ? "tăng" : "giảm"} ${topVariance.valText.replace("+", "")}.` : ""}`
+          `Cơ cấu dịch vụ: Dòng tiền thu trước toàn file đạt ${formatCurrencyFull(totalAllPrimary)}, doanh thu định kỳ theo tháng đạt ${formatCurrencyFull(totalAllSecondary)}. Chu kỳ "${topPrimaryGroup.name}" là nguồn thu ổn định lớn nhất.`
+        );
+      } else if (domainType === "marketing") {
+        conclusions.push(
+          `Hiệu suất tiếp thị: Ghi nhận tổng cộng ${normalizedRows.length} chiến dịch với ngân sách ${formatCurrencyFull(totalAllPrimary)}, kênh "${topPrimaryGroup.name}" mang lại tỷ trọng tương tác cao nhất.`
+        );
+      } else if (domainType === "crm") {
+        conclusions.push(
+          `Quy mô phễu khách hàng: Tiếp nhận ${normalizedRows.length} hồ sơ với tổng ngân sách dự kiến ${formatCurrencyFull(totalAllPrimary)}, kênh "${topPrimaryGroup.name}" thu hút lượng khách lớn nhất.`
         );
       } else {
         conclusions.push(
-          `Hồ sơ ghi nhận tổng cộng ${normalizedRows.length} giao dịch với tổng doanh thu đạt ${formatCurrencyFull(totalAllRev)}.`
+          `Hồ sơ ghi nhận tổng cộng ${normalizedRows.length} dòng dữ liệu thực tế với tổng ${primaryMetricLabel.toLowerCase()} đạt ${formatCurrencyFull(totalAllPrimary)}.`
         );
       }
-      if (blankChannel && blankChannel.val > 0) {
+
+      if (prevPeriod) {
         conclusions.push(
-          `Cảnh báo dữ liệu: Có ${blankChannel.rowsCount} dòng thiếu kênh thuộc nhóm "(Ô trống)" với tổng giá trị ${formatCurrencyFull(blankChannel.val)} cần được rà soát bổ sung.`
+          `So sánh kỳ ${formatPeriodName(activePeriod)} với ${formatPeriodName(prevPeriod)}: ${primaryMetricLabel} ${currPrimaryTotal >= prevPrimaryTotal ? "tăng" : "giảm"} ${formatCurrencyFull(Math.abs(currPrimaryTotal - prevPrimaryTotal))}. ${topVariance ? `Nhóm "${topVariance.name}" biến động mạnh nhất (${topVariance.valText}).` : ""}`
+        );
+      }
+
+      if (blankGroup && blankGroup.val > 0) {
+        conclusions.push(
+          `Cảnh báo dữ liệu: Có ${blankGroup.rowsCount} dòng thiếu "${dim1Label}" thuộc nhóm "(Ô trống)" với giá trị ${formatCurrencyFull(blankGroup.val)} cần được chuẩn hóa bổ sung.`
         );
       }
       $("#dashConclusionList").innerHTML = conclusions.map(t => `<li>${escapeHtml(t)}</li>`).join("");
@@ -1763,36 +3438,42 @@
         {
           type: "positive",
           badge: "+",
-          text: `Tập trung phân bổ 50-60% nguồn lực vào kênh "${topChannel.name}" vì đây là động lực doanh thu lớn nhất (${formatCurrencyFull(topChannel.val)}, chiếm ${totalAllRev > 0 ? ((topChannel.val / totalAllRev) * 100).toFixed(1) : 0}% tổng doanh thu toàn kỳ).`
+          text: `Tập trung nguồn lực khai thác nhóm "${topPrimaryGroup.name}" (${dim1Label}): Đang đóng góp ${formatCurrencyFull(topPrimaryGroup.val)} (${totalAllPrimary > 0 ? ((topPrimaryGroup.val / totalAllPrimary) * 100).toFixed(1) : 100}% tổng dữ liệu).`
         },
         {
           type: "positive",
           badge: "+",
-          text: `Đẩy mạnh nhóm "${topSec.name}" vì đang chiếm tỷ trọng hoạt động cao nhất (${formatCurrencyFull(topSec.val)}) và mang lại lượng giao dịch chủ lực.`
+          text: `Đẩy mạnh mở rộng phân khúc "${topSecondaryGroup.name}" (${dim2Label}): Đang dẫn đầu với giá trị ${formatCurrencyFull(topSecondaryGroup.val)} qua ${topSecondaryGroup.rowsCount} bản ghi thực tế.`
         }
       ];
 
-      if (topVariance && topVariance.isPositive) {
-        actions.push({
-          type: "positive",
-          badge: "+",
-          text: `Nhân rộng mô hình thúc đẩy tăng trưởng tại "${topVariance.name}": Nhóm này bứt phá mạnh nhất (${topVariance.valText}) trong kỳ ${formatPeriodName(activePeriod)}.`
-        });
-      }
-
-      if (blankChannel && blankChannel.val > 0) {
+      if (domainType === "contracts") {
         actions.push({
           type: "warning",
           badge: "-",
-          text: `Rà soát dữ liệu: Xử lý dứt điểm ${formatCurrencyFull(blankChannel.val)} doanh thu ở nhóm "(Ô trống)" để định danh chính xác nguồn thu và không thất thoát số liệu.`
+          text: `Rà soát hạn hợp đồng: Thiết lập quy trình liên hệ tái ký trước 30-45 ngày đối với các hợp đồng sắp đáo hạn để duy trì dòng tiền thu trước đều đặn.`
+        });
+      } else if (domainType === "marketing") {
+        actions.push({
+          type: "positive",
+          badge: "+",
+          text: `Tối ưu hóa ngân sách quảng cáo: Chuyển dịch 20% ngân sách từ các chiến dịch có CVR thấp sang nhóm "${topPrimaryGroup.name}" để gia tăng tỷ lệ chuyển đổi.`
+        });
+      } else if (domainType === "crm") {
+        actions.push({
+          type: "warning",
+          badge: "-",
+          text: `Phân loại Lead theo ngân sách: Ưu tiên phân công NVKD chuyên trách chăm sóc ngay các khách hàng có ngân sách lớn từ kênh "${topPrimaryGroup.name}".`
         });
       }
 
-      actions.push({
-        type: "warning",
-        badge: "-",
-        text: `Kiểm soát chi phí giá vốn: Tổng giá vốn toàn kỳ đạt ${formatCurrencyFull(totalAllCost)} (chiếm ${totalAllRev > 0 ? ((totalAllCost / totalAllRev) * 100).toFixed(1) : 0}% doanh thu), cần đàm phán hợp đồng cung ứng số lượng lớn để đẩy biên lợi nhuận gộp lên trên 42%.`
-      });
+      if (blankGroup && blankGroup.val > 0) {
+        actions.push({
+          type: "warning",
+          badge: "-",
+          text: `Chuẩn hóa dữ liệu: Điền thông tin còn khuyết cho ${blankGroup.rowsCount} dòng ở nhóm "(Ô trống)" để không thất thoát số liệu báo cáo.`
+        });
+      }
 
       $("#dashActionList").innerHTML = actions.map(a => `
         <div class="dash-action-card ${a.type}">
@@ -1800,6 +3481,269 @@
           <div>${escapeHtml(a.text)}</div>
         </div>
       `).join("");
+    }
+
+    // Compute & Render Direct Answers to the User's Scope Questions & Targets
+    const effectiveDirectives = activeDirectives || {
+      userQuestions: buildDefaultQuestionsFromProfile(dashProfile).split("\n").filter(Boolean),
+      focusPeriod: activePeriod,
+      focusGroupValues: [],
+      targetGoal: null
+    };
+    const precomputedQA = computeUserQuestionsAnswers({
+      directives: effectiveDirectives,
+      currRows,
+      normalizedRows,
+      headers,
+      schema,
+      colPrimaryMetric,
+      colSecondaryMetric,
+      primaryMetricLabel,
+      secondaryMetricLabel,
+      dim1Label,
+      dim2Label,
+      dim1DonutList,
+      dim2ContribList,
+      trendMonthsData,
+      currPrimaryTotal,
+      activePeriod,
+      sortedPeriods,
+      blankGroup,
+      datasetLabel
+    });
+    state.lastQuestionAnswers = precomputedQA;
+    renderDashboardUserQuestions(
+      precomputedQA,
+      effectiveDirectives,
+      activeDirectives
+        ? `Áp dụng đúng phạm vi bạn đã trao đổi với AI (${formatPeriodName(activePeriod)} · ${currRows.length}/${fullRawRows.length} dòng · Chỉ số ưu tiên: ${primaryMetricLabel}).`
+        : `Trả lời tự động theo bộ dữ liệu "${datasetLabel}" — bạn có thể gõ câu hỏi hoặc yêu cầu lọc trực tiếp ở ô bên dưới.`
+    );
+
+    if (triggerAgent) {
+      triggerDashboardAgentAnalysis({
+        datasetLabel,
+        rawRows,
+        normalizedRows,
+        headers,
+        period: activePeriod,
+        metrics: {
+          domainType,
+          domainName,
+          kpis,
+          colPrimaryMetric,
+          primaryMetricLabel,
+          colSecondaryMetric,
+          secondaryMetricLabel,
+          dim1Label,
+          dim2Label,
+          topPrimaryGroup,
+          topSecondaryGroup,
+          currPrimaryTotal,
+          totalAllPrimary,
+          totalAllSecondary,
+          currRowsCount: currRows.length,
+          activePeriodName: formatPeriodName(activePeriod),
+          prevPeriodName: prevPeriod ? formatPeriodName(prevPeriod) : null,
+          varianceTop: topVariance,
+          blankGroupCount: blankGroup ? blankGroup.rowsCount : 0,
+          blankGroupVal: blankGroup ? blankGroup.val : 0,
+          monthsCount: sortedPeriods.length,
+          precomputedQA
+        }
+      });
+    }
+  }
+
+  let isDashboardAgentRunning = false;
+  async function triggerDashboardAgentAnalysis(context) {
+    if (isDashboardAgentRunning) return;
+    isDashboardAgentRunning = true;
+
+    const badge = $("#dashAgentScanBadge");
+    if (badge) {
+      badge.innerHTML = `<span class="pulse-beacon"></span> Agent đang rà soát dữ liệu & phân tích...`;
+      badge.className = "pill pill-amber";
+    }
+
+    try {
+      const llmOptions = getActiveLlmOptions();
+
+      const analysis = await agent.runDashboardAgentAnalysis({
+        datasetLabel: context.datasetLabel,
+        rawRows: context.rawRows,
+        normalizedRows: context.normalizedRows,
+        headers: context.headers,
+        period: context.period,
+        metrics: context.metrics,
+        businessContext: state.businessContext,
+        llmOptions
+      });
+
+      if (analysis) {
+        if (analysis.question_answers?.length) {
+          state.lastQuestionAnswers = analysis.question_answers;
+          renderDashboardUserQuestions(
+            analysis.question_answers,
+            state.businessContext?.directives,
+            analysis.llm_used
+              ? `AI Gemini (${analysis.llm_meta?.model_used || "flash"}) đã tổng hợp lời giải đáp bám sát số liệu thực tế & yêu cầu bạn đã đặt ra.`
+              : `AI Agent đã đối chiếu và giải đáp trực tiếp từ số liệu thực tế trong file (${context.rawRows.length} dòng).`
+          );
+        }
+
+        if ($("#dashConclusionList") && analysis.conclusions?.length) {
+          $("#dashConclusionList").innerHTML = analysis.conclusions.map(t => `<li>${escapeHtml(t)}</li>`).join("");
+        }
+
+        if ($("#dashActionList") && analysis.actions?.length) {
+          $("#dashActionList").innerHTML = analysis.actions.map(a => `
+            <div class="dash-action-card ${a.type}">
+              <span class="dash-action-badge">${escapeHtml(a.badge)}</span>
+              <div>${escapeHtml(a.text)}</div>
+            </div>
+          `).join("");
+        }
+
+        if ($("#dashTopicRevInsight") && analysis.topic_channel_insight) {
+          $("#dashTopicRevInsight").textContent = analysis.topic_channel_insight;
+        }
+        if ($("#dashTopicMktInsight") && analysis.topic_secondary_insight) {
+          $("#dashTopicMktInsight").textContent = analysis.topic_secondary_insight;
+        }
+
+        if ($("#detailedReportBox") && analysis.detailed_report_html) {
+          $("#detailedReportBox").innerHTML = analysis.detailed_report_html;
+        }
+
+        if ($("#executiveBriefBox") && analysis.executive_brief) {
+          renderExecutiveBrief(analysis.executive_brief);
+        }
+
+        if (!state.agentOutput) {
+          state.agentOutput = {
+            run_id: analysis.run_id,
+            executive_brief: analysis.executive_brief,
+            detailed_report_html: analysis.detailed_report_html,
+            customers: [],
+            report: {
+              summary: {
+                total_raw_records: context.rawRows.length,
+                unique_customers: context.rawRows.length,
+                duplicates_merged: 0,
+                by_priority: { "Cao": 0, "Trung bình": 0, "Thấp": 0, "Không liên hệ lại": 0 },
+                manager_decision_count: 0,
+                unassigned_count: 0,
+                do_not_contact_count: 0
+              },
+              by_staff: [],
+              lists: {
+                sales_tasks: [],
+                unassigned: [],
+                do_not_contact: [],
+                manager_decisions: []
+              }
+            },
+            trace: analysis.trace || []
+          };
+        } else {
+          state.agentOutput.executive_brief = analysis.executive_brief;
+          state.agentOutput.detailed_report_html = analysis.detailed_report_html;
+          if (analysis.trace?.length) {
+            state.agentOutput.trace.push(...analysis.trace);
+          }
+        }
+
+        if (badge) {
+          const modeTag = analysis.llm_used ? `AI Gemini (${analysis.llm_meta?.model_used || "flash"})` : "Local Agent";
+          badge.innerHTML = `<span class="pulse-beacon"></span> Đã phân tích (${modeTag} · ${context.rawRows.length} dòng)`;
+          badge.className = "pill pill-yellow";
+        }
+      }
+    } catch (err) {
+      console.warn("Lỗi phân tích Agent trên Dashboard:", err);
+      if (badge) {
+        badge.innerHTML = `<span class="pulse-beacon"></span> Agent rà soát (${context.rawRows.length} dòng)`;
+        badge.className = "pill pill-yellow";
+      }
+    } finally {
+      isDashboardAgentRunning = false;
+    }
+  }
+
+  let isDashQuickAskBusy = false;
+  async function handleDashboardQuickAsk() {
+    if (isDashQuickAskBusy) return;
+    const input = $("#dashQuickAskInput");
+    const btn = $("#btnDashQuickAsk");
+    const msg = (input?.value || "").trim();
+    if (!msg) return;
+
+    isDashQuickAskBusy = true;
+    const origText = btn ? btn.textContent : "";
+    if (btn) {
+      btn.disabled = true;
+      btn.textContent = "AI đang xử lý...";
+    }
+
+    try {
+      const dsType = $("#dashDatasetFilter")?.value || state.lastDashboardDatasetType || "auto";
+      const profile = state.lastDashboardProfile;
+      if (!profile) return;
+
+      const res = await agent.chatWithScopeAgent({
+        message: msg,
+        chatHistory: state.scopeChatHistory || [],
+        datasetLabel: dsType === "auto" ? (state.parsedDataset?.sourceLabel || "Dữ liệu hiện tại") : dsType,
+        dataProfile: profile,
+        currentContext: state.businessContext || {},
+        llmOptions: getActiveLlmOptions()
+      });
+
+      if (!state.businessContext) {
+        state.businessContext = {
+          businessType: profile.domainName || "Phân tích dữ liệu",
+          analysisQuestions: "",
+          dynamicQA: [],
+          chatHistory: [],
+          chatDirectives: {}
+        };
+      }
+      state.businessContext.appliedToDataset = dsType;
+      state.scopeChatHistory = state.scopeChatHistory || [];
+      state.scopeChatHistory.push({ role: "user", text: msg, meta: "Từ Dashboard" });
+      state.scopeChatHistory.push({ role: "ai", text: res.reply, meta: res.llm_used ? "AI Gemini" : "AI Agent" });
+      state.businessContext.chatHistory = state.scopeChatHistory;
+
+      const ed = res.extracted_directives || {};
+      state.scopeChatDirectives = { ...(state.scopeChatDirectives || {}) };
+      if (ed.focusPeriod) state.scopeChatDirectives.focusPeriod = ed.focusPeriod;
+      if (ed.focusMetricCol) state.scopeChatDirectives.focusMetricCol = ed.focusMetricCol;
+      if (ed.focusDimCol) state.scopeChatDirectives.focusDimCol = ed.focusDimCol;
+      if (Array.isArray(ed.focusGroupValues)) {
+        state.scopeChatDirectives.focusGroupValues = ed.focusGroupValues;
+        state.ignoreScopeGroupFilter = ed.focusGroupValues.length === 0;
+      }
+      if (ed.targetGoal) state.scopeChatDirectives.targetGoal = ed.targetGoal;
+      state.businessContext.chatDirectives = { ...state.scopeChatDirectives };
+
+      const qToAdd = ed.addQuestion || msg;
+      const existingQs = (state.businessContext.analysisQuestions || "").split("\n").map(s => s.trim()).filter(Boolean);
+      if (qToAdd && !existingQs.includes(qToAdd)) {
+        existingQs.unshift(qToAdd);
+        state.businessContext.analysisQuestions = existingQs.slice(0, 8).join("\n");
+        if ($("#ctxAnalysisQuestions")) $("#ctxAnalysisQuestions").value = state.businessContext.analysisQuestions;
+      }
+
+      if (input) input.value = "";
+      const nextPeriod = ed.focusPeriod || ($("#dashPeriodFilter")?.value || "auto");
+      await renderBusinessKpiDashboard(dsType, nextPeriod, true);
+    } finally {
+      isDashQuickAskBusy = false;
+      if (btn) {
+        btn.disabled = false;
+        btn.textContent = origText || "Hỏi & Cập nhật Dashboard ↵";
+      }
     }
   }
 
@@ -1832,8 +3776,8 @@
       <svg viewBox="0 0 ${width} ${height}" style="width:100%;height:100%;overflow:visible;">
         <defs>
           <linearGradient id="trendGrad" x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0%" stop-color="#0d9488" stop-opacity="0.30" />
-            <stop offset="100%" stop-color="#0d9488" stop-opacity="0.03" />
+            <stop offset="0%" stop-color="#d97706" stop-opacity="0.30" />
+            <stop offset="100%" stop-color="#d97706" stop-opacity="0.03" />
           </linearGradient>
         </defs>
         ${yTicks.map(t => `
@@ -1841,9 +3785,9 @@
           <text x="${padX - 10}" y="${t.y + 4}" text-anchor="end" font-size="11" fill="#9ca3af" font-family="sans-serif">${t.val}</text>
         `).join("")}
         <path d="${areaD}" fill="url(#trendGrad)" />
-        <path d="${pathD}" fill="none" stroke="#0f766e" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
+        <path d="${pathD}" fill="none" stroke="#b45309" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
         ${points.map(p => `
-          <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="5" fill="#0f766e" stroke="#ffffff" stroke-width="2">
+          <circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="5" fill="#d97706" stroke="#ffffff" stroke-width="2">
             <title>${p.month}: ${p.label}</title>
           </circle>
           <text x="${p.x.toFixed(1)}" y="${padY + chartH + 18}" text-anchor="middle" font-size="11" fill="#6b7280" font-family="sans-serif">${p.month}</text>
@@ -1911,7 +3855,7 @@
         <div class="dash-bar-track">
           <div class="dash-bar-fill ${it.isPositive ? "positive" : "negative"}" style="width:${it.pct}%;"></div>
         </div>
-        <span class="dash-bar-val" style="color:${it.isPositive ? "#0f766e" : "#8b5cf6"};">${it.valText}</span>
+        <span class="dash-bar-val" style="color:${it.isPositive ? "#15803d" : "#b91c1c"};">${it.valText}</span>
       </div>
     `).join("");
   }
@@ -2037,8 +3981,11 @@
   }
 
   function buildDetailedReportHTML(out) {
-    const s = out.report.summary;
-    const customers = out.customers;
+    if (!out) return "";
+    if (out.detailed_report_html) return out.detailed_report_html;
+    const s = out.report?.summary || {};
+    const customers = out.customers || [];
+    const lists = out.report?.lists || {};
     const validPipelineBudget = customers
       .filter(c => !c.is_do_not_contact && !c.is_wrong_product && (c.budget_vnd || 0) > 0)
       .reduce((acc, c) => acc + c.budget_vnd, 0);
@@ -2047,13 +3994,13 @@
     const outreachCount = customers.filter(c => !c.is_do_not_contact && c.draft_type !== "clarify_questions").length;
     const dupRate = s.total_raw_records > 0 ? Math.round((s.duplicates_merged / s.total_raw_records) * 100) : 0;
 
-    const mgrItems = out.report.lists.manager_decisions.slice(0, 5).map(c =>
-      `<li class="sign-item sign-neg"><span class="sign-tag sign-minus">-</span> <span><strong>${escapeHtml(c.company_name)}</strong> (${escapeHtml(c.customer_id)}): ${escapeHtml(c.escalation_reasons.join("; "))}</span></li>`
+    const mgrItems = (lists.manager_decisions || []).slice(0, 5).map(c =>
+      `<li class="sign-item sign-neg"><span class="sign-tag sign-minus">-</span> <span><strong>${escapeHtml(c.company_name)}</strong> (${escapeHtml(c.customer_id)}): ${escapeHtml((c.escalation_reasons || []).join("; "))}</span></li>`
     ).join("");
-    const unItems = out.report.lists.unassigned.slice(0, 5).map(c =>
+    const unItems = (lists.unassigned || []).slice(0, 5).map(c =>
       `<li class="sign-item sign-neg"><span class="sign-tag sign-minus">-</span> <span><strong>${escapeHtml(c.company_name)}</strong>: Chưa có NVKD phụ trách (Ngành ${escapeHtml(c.industry || "Trống")} · KV ${escapeHtml(c.region || "Trống")})</span></li>`
     ).join("");
-    const dncItems = out.report.lists.do_not_contact.slice(0, 4).map(c =>
+    const dncItems = (lists.do_not_contact || []).slice(0, 4).map(c =>
       `<li class="sign-item sign-neg"><span class="sign-tag sign-minus">-</span> <span><strong>${escapeHtml(c.company_name)}</strong>: Chặn gọi trùng / ngừng liên hệ theo lịch sử</span></li>`
     ).join("");
 
@@ -2428,7 +4375,7 @@
       return `<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;"><span class="sign-tag ${isPlus ? "sign-plus" : "sign-minus"}">${sign}</span><span>${escapeHtml(content)}</span></div>`;
     }).join("");
 
-    const kpiOrdersVal = $("#dashValOrders")?.textContent?.trim() || "312";
+    const kpiOrdersVal = $("#dashValOrders")?.textContent?.trim() || "0";
     const kpiOrdersDelta = $("#dashDeltaOrders")?.textContent?.trim() || "+71,4% so với Tháng 03/2026";
     const kpiRevVal = $("#dashValRevenue")?.textContent?.trim() || "139.600.000 VND";
     const kpiRevDelta = $("#dashDeltaRevenue")?.textContent?.trim() || "+39,3% so với Tháng 03/2026";
@@ -2437,6 +4384,52 @@
     const kpiCostVal = $("#dashValCost")?.textContent?.trim() || "86.552.000 VND";
     const kpiCostDelta = $("#dashDeltaCost")?.textContent?.trim() || "+39,3% so với Tháng 03/2026";
     const currentPeriodLabel = $("#dashPeriodFilter")?.selectedOptions?.[0]?.textContent || "Tháng 04/2026";
+
+    const kpiCards = Array.from(document.querySelectorAll("#dashKpiContainer .dash-kpi-card"));
+    const kpiCardsHtml = kpiCards.length > 0
+      ? kpiCards.map(c => `
+          <div class="kpi-card">
+            <div class="lbl">${escapeHtml(c.querySelector(".dash-kpi-head")?.textContent?.trim() || "")}</div>
+            <div class="val">${escapeHtml(c.querySelector(".dash-kpi-num")?.textContent?.trim() || "")}</div>
+            <div class="sub">${escapeHtml(c.querySelector(".dash-kpi-unit")?.textContent?.trim() || "")}</div>
+            <div class="delta">${escapeHtml(c.querySelector(".dash-kpi-delta")?.textContent?.trim() || "")}</div>
+          </div>
+        `).join("")
+      : `
+        <div class="kpi-card"><div class="lbl">Số đơn hàng</div><div class="val">${escapeHtml(kpiOrdersVal)}</div><div class="sub">Số đơn</div><div class="delta">${escapeHtml(kpiOrdersDelta)}</div></div>
+        <div class="kpi-card"><div class="lbl">Doanh thu</div><div class="val">${escapeHtml(kpiRevVal)}</div><div class="sub">Doanh thu (VND)</div><div class="delta">${escapeHtml(kpiRevDelta)}</div></div>
+        <div class="kpi-card"><div class="lbl">Lợi nhuận</div><div class="val">${escapeHtml(kpiProfitVal)}</div><div class="sub">Lợi nhuận gộp (VND)</div><div class="delta">${escapeHtml(kpiProfitDelta)}</div></div>
+        <div class="kpi-card"><div class="lbl">Chi phí</div><div class="val">${escapeHtml(kpiCostVal)}</div><div class="sub">Chi phí giá vốn (VND)</div><div class="delta">${escapeHtml(kpiCostDelta)}</div></div>
+      `;
+
+    const qaAnswersExportHtml = (state.lastQuestionAnswers && state.lastQuestionAnswers.length)
+      ? `<div style="margin:18px 0;background:#fffdf5;border:1.5px solid #d97706;border-radius:12px;padding:16px 20px;">
+          <h3 style="margin:0 0 10px 0;color:#92400e;font-size:15px;">✦ Giải đáp Trực tiếp Câu hỏi &amp; Phạm vi Người dùng đã Trao đổi với AI</h3>
+          <div style="display:flex;flex-direction:column;gap:8px;">
+          ${state.lastQuestionAnswers.map((qa, idx) => `
+            <div style="background:#fff;border:1px solid #fde68a;border-left:4px solid #d97706;border-radius:8px;padding:10px 14px;">
+              <div style="font-weight:800;font-size:13px;color:#111827;margin-bottom:4px;">Q${idx + 1}. ${escapeHtml(qa.question)}</div>
+              <div style="font-size:13px;color:#1f2937;line-height:1.5;">${escapeHtml(qa.answer)}</div>
+              ${qa.evidence ? `<div style="margin-top:4px;font-size:11.5px;color:#92400e;font-weight:600;">Dẫn chứng: ${escapeHtml(qa.evidence)}</div>` : ""}
+            </div>
+          `).join("")}
+          </div>
+        </div>`
+      : "";
+
+    const trendTitle = $("#dashTrendTitle")?.textContent?.trim() || "Chỉ số theo thời gian";
+    const trendHint = $("#dashTrendHint")?.textContent?.trim() || "";
+    const donutTitle = $("#dashDonutTitle")?.textContent?.trim() || "Cơ cấu tỷ trọng";
+    const donutHint = $("#dashDonutHint")?.textContent?.trim() || "";
+    const contribTitle = $("#dashContribTitle")?.textContent?.trim() || "Đóng góp theo nhóm";
+    const contribHint = $("#dashContribHint")?.textContent?.trim() || "";
+    const varianceTitle = $("#dashVarianceTitle")?.textContent?.trim() || "Biến động & Đối chiếu";
+    const varianceHint = $("#dashVarianceSub")?.textContent?.trim() || "";
+    const topic1Title = $("#dashTopic1Title")?.textContent?.trim() || "Phân tích chuyên đề 1";
+    const topic1Insight = $("#dashTopicRevInsight")?.textContent?.trim() || "";
+    const topic2Title = $("#dashTopic2Title")?.textContent?.trim() || "Phân tích chuyên đề 2";
+    const topic2Banner = $("#dashTopicCogsBanner")?.innerHTML || "";
+    const topic2Insight = $("#dashTopicMktInsight")?.textContent?.trim() || "";
 
     // Leadership visual output capture with fallbacks
     let funnelHtml = $("#leadFunnelChart")?.innerHTML?.trim() || "";
@@ -2538,7 +4531,7 @@
 <head>
 <meta charset="UTF-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-<title>Báo cáo Chốt Kết quả & Dashboard - Nam Việt AI Agent (${escapeHtml(runId)})</title>
+<title>Báo cáo Chốt Kết quả &amp; Dashboard - Minh Hoàng AI Agent (${escapeHtml(runId)})</title>
 <style>
   body { margin:0; padding:28px; font-family:"Segoe UI",system-ui,sans-serif; background:#ffffff; color:#111111; line-height:1.5; }
   .wrap { max-width:1280px; margin:0 auto; }
@@ -2547,48 +4540,57 @@
   h2 { margin:24px 0 12px; font-size:17px; color:#111111; border-left:4px solid #f59e0b; padding-left:10px; }
   .meta { color:#52525b; font-size:13px; }
   .kpis { display:grid; grid-template-columns:repeat(auto-fit,minmax(200px,1fr)); gap:14px; margin:14px 0; }
-  .kpi-card { background:#ffffff; border:1.5px solid #0d9488; border-radius:12px; padding:14px 18px; }
-  .kpi-card .lbl { font-size:12.5px; font-weight:700; color:#111111; }
-  .kpi-card .val { font-size:22px; font-weight:900; color:#0f766e; margin-top:2px; }
+  .kpi-card { background:#fffdf5; border:1.5px solid #fde68a; border-top:3px solid #d97706; border-radius:12px; padding:14px 18px; }
+  .kpi-card .lbl { font-size:12.5px; font-weight:700; color:#52525b; }
+  .kpi-card .val { font-size:22px; font-weight:900; color:#111827; margin-top:2px; }
   .kpi-card .sub { font-size:11.5px; color:#6b7280; }
-  .kpi-card .delta { font-size:12px; font-weight:700; color:#0f766e; margin-top:4px; }
+  .kpi-card .delta { font-size:12px; font-weight:700; color:#b45309; margin-top:4px; }
   .visuals-grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; margin:16px 0; }
   .v-card { background:#ffffff; border:1px solid #e5e7eb; border-radius:12px; padding:16px 18px; }
   .v-card h3 { margin:0 0 4px; font-size:14px; font-weight:800; color:#111111; }
   .v-card small { color:#6b7280; font-size:11.5px; display:block; margin-bottom:10px; }
   .thematic-grid { display:grid; grid-template-columns:1.2fr 1fr; gap:14px; margin:12px 0; }
-  .insight-card { background:#f0fdfa; border:1px solid #ccfbf1; border-radius:12px; padding:14px 16px; font-size:12.5px; color:#334155; line-height:1.6; }
-  .insight-card strong { color:#0f766e; display:block; margin-bottom:6px; font-size:13px; }
-  .cogs-banner { background:#f0fdf4; border:1px solid #bbf7d0; border-left:4px solid #16a34a; border-radius:10px; padding:12px 16px; margin:12px 0; font-size:12.5px; }
-  .cogs-banner strong { color:#15803d; font-size:13px; display:block; }
+  .insight-card { background:#fffdf5; border:1px solid #fde68a; border-radius:12px; padding:14px 16px; font-size:12.5px; color:#334155; line-height:1.6; }
+  .insight-card strong { color:#92400e; display:block; margin-bottom:6px; font-size:13px; }
+  .cogs-banner { background:#fffdf5; border:1px solid #fde68a; border-left:4px solid #d97706; border-radius:10px; padding:12px 16px; margin:12px 0; font-size:12.5px; }
+  .cogs-banner > strong { color:#92400e; font-size:13px; display:block; margin-bottom:4px; }
+  .cogs-banner p { margin:0; line-height:1.55; }
+  .cogs-banner p strong { display:inline; color:#92400e; font-weight:700; }
   .dash-bullet-list { list-style:none; padding:0; margin:8px 0; display:flex; flex-direction:column; gap:6px; font-size:12.5px; }
   .dash-bullet-list li { position:relative; padding-left:16px; color:#374151; }
-  .dash-bullet-list li::before { content:"•"; position:absolute; left:0; color:#0d9488; font-weight:900; }
-  .dash-action-cards-grid { display:flex; flex-direction:column; gap:8px; margin:8px 0; font-size:12.5px; }
+  .dash-bullet-list li::before { content:"•"; position:absolute; left:0; color:#d97706; font-weight:900; }
+  .dash-action-cards-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; margin:8px 0; font-size:12.5px; }
   .dash-action-card { display:flex; align-items:flex-start; gap:10px; border-radius:8px; padding:10px 14px; }
-  .dash-action-card.positive { background:#f0fdf4; border:1px solid #bbf7d0; border-left:4px solid #16a34a; color:#166534; }
-  .dash-action-card.warning { background:#fffdf5; border:1px solid #fde68a; border-left:4px solid #d97706; color:#854d0e; }
+  .dash-action-card.positive { background:#fffdf5; border:1px solid #fde68a; border-left:4px solid #d97706; color:#78350f; }
+  .dash-action-card.warning { background:#fef2f2; border:1px solid #fecaca; border-left:4px solid #b91c1c; color:#991b1b; }
   .dash-action-badge { display:inline-flex; align-items:center; justify-content:center; width:20px; height:20px; border-radius:50%; font-weight:900; font-size:12px; flex-shrink:0; }
-  .dash-action-card.positive .dash-action-badge { background:#16a34a; color:#fff; }
-  .dash-action-card.warning .dash-action-badge { background:#d97706; color:#fff; }
+  .dash-action-card.positive .dash-action-badge { background:#d97706; color:#fff; }
+  .dash-action-card.warning .dash-action-badge { background:#b91c1c; color:#fff; }
   .pill { display:inline-block; padding:3px 10px; border-radius:999px; font-size:12px; font-weight:600; margin:2px; }
-  .pill.ok { background:#dcfce7; color:#15803d; border:1px solid #86efac; }
+  .pill.ok { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; }
   .pill.err { background:#fee2e2; color:#b91c1c; border:1px solid #fca5a5; }
   table { width:100%; border-collapse:collapse; background:#ffffff; border:1px solid #e4e4e7; font-size:12.5px; margin-top:10px; }
   th, td { border:1px solid #e4e4e7; padding:9px 12px; text-align:left; vertical-align:top; color:#111111; }
   th { background:#fef3c7; color:#111111; font-weight:800; white-space:nowrap !important; }
-  .dash-bar-row { display:grid; grid-template-columns:80px 1fr 110px; align-items:center; gap:8px; font-size:12px; margin-bottom:8px; }
+  .dash-bar-row { display:grid; grid-template-columns:minmax(115px,155px) minmax(70px,1fr) auto; align-items:center; gap:10px; font-size:12px; margin-bottom:8px; }
+  .dash-bar-label { font-weight:600; color:#374151; line-height:1.3; word-break:break-word; }
   .dash-bar-track { height:12px; background:#f3f4f6; border-radius:999px; overflow:hidden; display:flex; }
   .dash-bar-fill { height:100%; border-radius:999px; }
-  .dash-bar-fill.positive { background:#0d9488; }
-  .dash-bar-fill.negative { background:#8b5cf6; }
+  .dash-bar-fill.positive { background:#d97706; }
+  .dash-bar-fill.negative { background:#b91c1c; }
   .donut-legend-row { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:12px; margin-bottom:8px; }
   .donut-legend-dot { width:10px; height:10px; border-radius:2px; display:inline-block; margin-right:6px; }
 
   /* Báo cáo Chi tiết & Biểu đồ Kiểm soát Trưởng phòng */
-  .brief-box { background:#fafafa; border:1px solid #e5e7eb; border-left:4px solid #0d9488; border-radius:10px; padding:16px 20px; margin:14px 0; font-size:13px; line-height:1.6; }
-  .detailed-report-wrap { display:grid; grid-template-columns:repeat(auto-fit,minmax(340px,1fr)); gap:14px; margin:14px 0; }
+  .brief-box { background:#fffdf5; border:1px solid #fde68a; border-left:4px solid #d97706; border-radius:10px; padding:14px 18px; margin:14px 0; font-size:13px; line-height:1.55; display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+  .detailed-report-wrap { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin:14px 0; }
   .report-block { background:#fffdf5; border:1px solid #fde68a; border-left:4px solid #d97706; border-radius:10px; padding:14px 16px; }
+  .report-block-full { grid-column: 1 / -1; }
+  .report-qa-grid-2col { display:flex; flex-direction:column; gap:8px; margin-top:8px; }
+  .report-qa-mini { background:#ffffff; border:1px solid #fde68a; border-radius:8px; padding:10px 12px; }
+  .report-qa-q { font-weight:800; font-size:12.5px; color:#111827; margin-bottom:4px; }
+  .report-qa-a { font-size:12.5px; color:#374151; line-height:1.45; }
+  .report-qa-ev { font-size:11.5px; color:#92400e; font-weight:600; margin-top:4px; }
   .rb-title { display:block; color:#854d0e; font-size:13.5px; margin-bottom:8px; font-weight:800; }
   .star-yellow { color:#d97706; margin-right:4px; }
   .report-sign-list { list-style:none !important; padding:0 !important; margin:6px 0 0 !important; display:flex; flex-direction:column; gap:8px; }
@@ -2622,57 +4624,55 @@
 <body>
 <div class="wrap">
   <div class="hdr">
-    <h1>BÁO CÁO CHỐT KẾT QUẢ & DASHBOARD — NAM VIỆT AI AGENT</h1>
+    <h1>BÁO CÁO CHỐT KẾT QUẢ &amp; DASHBOARD — MINH HOÀNG AI AGENT</h1>
     <div class="meta">Run ID: ${escapeHtml(runId)} · Nguồn: ${escapeHtml(state.parsedDataset?.sourceLabel || "Bán lẻ mẫu")} · Thời điểm xuất: ${escapeHtml(new Date().toLocaleString("vi-VN"))}</div>
     <div style="margin-top:8px;">${verifyHtml}</div>
   </div>
 
   <h2>Dashboard KPI Kinh Doanh (${escapeHtml(currentPeriodLabel)})</h2>
   <div class="kpis">
-    <div class="kpi-card"><div class="lbl">Số đơn hàng</div><div class="val">${escapeHtml(kpiOrdersVal)}</div><div class="sub">Số đơn</div><div class="delta">${escapeHtml(kpiOrdersDelta)}</div></div>
-    <div class="kpi-card"><div class="lbl">Doanh thu</div><div class="val">${escapeHtml(kpiRevVal)}</div><div class="sub">Doanh thu (VND)</div><div class="delta">${escapeHtml(kpiRevDelta)}</div></div>
-    <div class="kpi-card"><div class="lbl">Lợi nhuận</div><div class="val">${escapeHtml(kpiProfitVal)}</div><div class="sub">Lợi nhuận gộp (VND)</div><div class="delta">${escapeHtml(kpiProfitDelta)}</div></div>
-    <div class="kpi-card"><div class="lbl">Chi phí</div><div class="val">${escapeHtml(kpiCostVal)}</div><div class="sub">Chi phí giá vốn (VND)</div><div class="delta">${escapeHtml(kpiCostDelta)}</div></div>
+    ${kpiCardsHtml}
   </div>
+  ${qaAnswersExportHtml}
 
   <div class="visuals-grid">
     <div class="v-card">
-      <h3>Doanh thu theo tháng</h3>
-      <small>Doanh thu (VND) · Tối đa 12 tháng có dữ liệu để đối chiếu</small>
+      <h3>${escapeHtml(trendTitle)}</h3>
+      <small>${escapeHtml(trendHint)}</small>
       <div style="height:180px;">${trendSvgHtml}</div>
     </div>
     <div class="v-card">
-      <h3>Cơ cấu chi phí</h3>
-      <small>Theo Kênh</small>
+      <h3>${escapeHtml(donutTitle)}</h3>
+      <small>${escapeHtml(donutHint)}</small>
       <div>${costDonutHtml}</div>
     </div>
     <div class="v-card">
-      <h3>Đóng góp doanh thu</h3>
-      <small>Theo Kênh</small>
+      <h3>${escapeHtml(contribTitle)}</h3>
+      <small>${escapeHtml(contribHint)}</small>
       <div>${revContribHtml}</div>
     </div>
     <div class="v-card">
-      <h3>Nhóm làm thay đổi doanh thu</h3>
-      <small>So sánh chu kỳ liền kề · Kênh</small>
+      <h3>${escapeHtml(varianceTitle)}</h3>
+      <small>${escapeHtml(varianceHint)}</small>
       <div>${varianceHtml}</div>
     </div>
   </div>
 
   <h2>Phân tích Chuyên đề</h2>
   <div class="v-card" style="margin-bottom:14px;">
-    <h3>Doanh thu (VND) theo Kênh</h3>
+    <h3>${escapeHtml(topic1Title)}</h3>
     <div class="thematic-grid">
       <div>${topicRevHtml}</div>
-      <div class="insight-card"><strong>Nhận định</strong>Bộ 1 — Bán lẻ mẫu · Nhóm "Website" có tổng "Doanh thu (VND)" cao nhất trong 4 nhóm theo "Kênh" (173.200.000). Cột này có số liệu ở 20/20 dòng.</div>
+      <div class="insight-card"><strong>Nhận định</strong>${escapeHtml(topic1Insight)}</div>
     </div>
   </div>
 
   <div class="v-card">
-    <h3>Chi phí giá vốn (VND) và Chi phí</h3>
-    <div class="cogs-banner"><strong>Chi phí giá vốn (VND)</strong>Bộ 1 — Bán lẻ mẫu · Tổng "Chi phí giá vốn (VND)" là 222.518.000. Cột này có số liệu ở 20/20 dòng.</div>
+    <h3>${escapeHtml(topic2Title)}</h3>
+    <div class="cogs-banner">${topic2Banner}</div>
     <div class="thematic-grid">
       <div>${topicMktHtml}</div>
-      <div class="insight-card"><strong>Nhận định</strong>Bộ 2 — Marketing mẫu · Nhóm "Tìm kiếm" có tổng "Chi phí" cao nhất trong 3 nhóm theo "Chiến dịch" (8.080.000). Cột này có số liệu ở 6/6 dòng.</div>
+      <div class="insight-card"><strong>Nhận định</strong>${escapeHtml(topic2Insight)}</div>
     </div>
   </div>
 
@@ -2691,50 +4691,15 @@
     ${briefFormattedHtml || `<div style="color:#6b7280;">Agent chưa tạo tóm tắt điều hành.</div>`}
   </div>
 
-  <h2>Báo cáo Chi tiết Kinh doanh & Điều phối Đội ngũ</h2>
+  <h2>Báo cáo Chi tiết Kinh doanh</h2>
   <div class="detailed-report-wrap">
     ${detailedReportHtml}
   </div>
-
-  <h2>Bộ tứ Biểu đồ Kiểm soát Đầu ra cho Trưởng phòng</h2>
-  <div class="visuals-grid">
-    <div class="v-card">
-      <h3>1. Phễu hao hụt Lead Funnel</h3>
-      <small>Bản ghi hao hụt thế nào từ đầu vào đến danh sách gọi</small>
-      <div>${funnelHtml}</div>
-    </div>
-    <div class="v-card">
-      <h3>2. Tải 8 NVKD theo Mức Ưu tiên (Stacked)</h3>
-      <small>Mỗi nhân viên nhận bao nhiêu khách ở từng mức ưu tiên</small>
-      <div style="display:flex;gap:14px;font-size:12px;color:#6b7280;margin-bottom:8px;">
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#34d399;border-radius:2px;display:inline-block;"></span> Ưu tiên Cao</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#f2ea00;border-radius:2px;display:inline-block;"></span> Trung bình</span>
-        <span style="display:flex;align-items:center;gap:4px;"><span style="width:10px;height:10px;background:#71717a;border-radius:2px;display:inline-block;"></span> Thấp</span>
-      </div>
-      <div>${staffPriorityHtml}</div>
-    </div>
-    <div class="v-card">
-      <h3>3. Heatmap Tỷ lệ Dữ liệu Trống</h3>
-      <small>Dữ liệu thiếu ở đâu theo cột và kênh thu hút</small>
-      <div>${heatmapHtml}</div>
-    </div>
-    <div class="v-card">
-      <h3>4. Phân loại Lý do vào Hàng đợi Trưởng phòng</h3>
-      <small>Vì sao khách vào hàng đợi người</small>
-      <div>${exceptionHtml}</div>
-    </div>
-  </div>
-
-  <h2>Bảng Tổng hợp Phân công 8 Nhân viên Kinh doanh</h2>
-  <table>
-    <thead><tr><th>Mã</th><th>NVKD</th><th>Khu vực</th><th>Ngành</th><th>Hiện có</th><th>Giao mới</th><th>Chờ duyệt</th><th>Tổng / Định mức</th></tr></thead>
-    <tbody>${staffRows}</tbody>
-  </table>
 </div>
 </body>
 </html>`;
 
-    downloadBlob(`namviet_bao_cao_ket_qua_${runId}.html`, html, "text/html;charset=utf-8");
+    downloadBlob(`minhhoang_bao_cao_phan_tich_${runId}.html`, html, "text/html;charset=utf-8");
   }
 
   // ---- Config Save ----
