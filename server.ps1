@@ -1,4 +1,4 @@
-param(
+﻿param(
     [int]$Port = 8765
 )
 
@@ -474,7 +474,7 @@ function Invoke-DualBrainFailover($messages, [double]$temperature = 0.2) {
                         } catch {}
                     }
                     if (-not $tested) {
-                        $tested = @{ id = $b.id; label = $b.label; masked_key = (Mask-ApiKey $b.api_key); ok = $false; error = "Không phản hồi" }
+                        $tested = @{ id = $b.id; label = $b.label; masked_key = (Mask-ApiKey $b.api_key); ok = $false; error = "No response" }
                     }
                     $results.Add($tested)
                 }

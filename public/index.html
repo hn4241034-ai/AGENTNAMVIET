@@ -30,6 +30,7 @@
     <div class="topbar-actions">
       <span id="brainBadge" class="badge badge-neutral hidden" style="display:none;">AI Brain...</span>
       <span id="serverBadge" class="badge badge-neutral hidden" style="display:none;">Server...</span>
+      <a href="slides.html" target="_blank" class="btn btn-outline btn-sm" style="text-decoration:none;display:inline-flex;align-items:center;gap:4px;">📊 Xem Slide</a>
       <button id="btnToggleLLM" class="btn btn-outline btn-sm" type="button">Cấu hình AI</button>
     </div>
   </header>
@@ -495,17 +496,77 @@
             <ul id="warningList" class="warning-list mt-1 hidden"></ul>
           </div>
 
-          <details id="previewDetails" class="mt-2">
-            <summary class="hint" style="cursor:pointer;font-weight:600;color:var(--accent);">
-              Xem / Sửa trực tiếp bảng dữ liệu (bấm vào ô để sửa)
-            </summary>
-            <div class="table-wrap max-h-320 mt-1">
+          <!-- BẢNG DỮ LIỆU & TRỢ LÝ AI DATA WRANGLER (XEM TRỰC TIẾP & CHỈNH SỬA DỮ LIỆU CÙNG AI) -->
+          <div id="dataStudioContainer" class="data-studio-box mt-2">
+            <!-- Top Bar: Data Specs & Actions -->
+            <div class="data-studio-header">
+              <div class="data-studio-title-group">
+                <div class="data-studio-badge">
+                  <span class="live-dot"></span> BẢNG DỮ LIỆU THỰC TẾ
+                </div>
+                <div class="data-studio-stats">
+                  <span id="dataStudioRowCount" class="stat-pill"><strong>0</strong> dòng</span>
+                  <span id="dataStudioColCount" class="stat-pill"><strong>0</strong> cột</span>
+                  <span id="dataStudioActiveColsBadge" class="stat-pill amber">Đang dùng <strong>0</strong> cột</span>
+                </div>
+              </div>
+              <div class="btn-group">
+                <button id="btnResetDataSubset" class="btn btn-outline btn-sm" type="button" title="Khôi phục toàn bộ cột ban đầu">
+                  🔄 Khôi phục tất cả cột
+                </button>
+                <button id="btnConfirmDataSubset" class="btn btn-neon btn-sm" type="button">
+                  Xác nhận dữ liệu này &amp; Tiếp tục phân tích →
+                </button>
+              </div>
+            </div>
+
+            <!-- AI Data Copilot Chat Panel -->
+            <div class="ai-wrangler-panel mt-1">
+              <div class="ai-wrangler-head">
+                <div class="ai-wrangler-title">
+                  <span class="star-yellow">✳</span> <strong>AI Data Wrangler</strong> — Trò chuyện để lọc, cắt giảm &amp; chỉnh sửa cấu trúc dữ liệu trực tiếp
+                </div>
+                <span class="pill pill-green">Sẵn sàng nhận lệnh</span>
+              </div>
+
+              <!-- Quick Prompt Chips -->
+              <div class="ai-wrangler-quick-chips">
+                <span class="chip-label">Gợi ý nhanh:</span>
+                <button type="button" class="wrangler-quick-btn" data-prompt="Chỉ tính dữ liệu theo 10 cột đầu tiên">⚡ Chỉ tính 10 cột đầu tiên</button>
+                <button type="button" class="wrangler-quick-btn" data-prompt="Chỉ tính 5 cột đầu tiên">⚡ Chỉ tính 5 cột đầu tiên</button>
+                <button type="button" class="wrangler-quick-btn" data-prompt="Chỉ giữ lại các cột số liệu và phân loại chính">📊 Chọn cột số liệu &amp; phân loại chính</button>
+                <button type="button" class="wrangler-quick-btn" data-prompt="Khôi phục toàn bộ cột ban đầu">🔄 Khôi phục tất cả cột</button>
+              </div>
+
+              <!-- Chat Messages Container -->
+              <div id="aiWranglerMessages" class="ai-chat-messages" style="max-height: 180px;">
+                <!-- Dynamic messages will be appended here -->
+              </div>
+
+              <!-- Input Row -->
+              <div class="ai-chat-input-row mt-1">
+                <input type="text" id="aiWranglerInput" class="input-text" placeholder="Ra lệnh cho AI (VD: 'Đang có 50 cột nhưng mình chỉ muốn tính dữ liệu theo 10 cột đầu tiên')..." />
+                <button type="button" id="btnSendWranglerCmd" class="btn btn-primary btn-sm">Gửi lệnh</button>
+              </div>
+            </div>
+
+            <!-- Active Column Chips Selector -->
+            <div class="column-chips-container mt-1">
+              <div class="column-chips-header">
+                <span class="hint"><strong>Danh sách cột đang được chọn để tính toán:</strong> (Bấm vào cột để bật / tắt)</span>
+                <span id="colSelectionSummary" class="hint" style="font-weight:700;color:var(--accent);">Đang chọn tất cả</span>
+              </div>
+              <div id="columnChipsList" class="column-chips-list"></div>
+            </div>
+
+            <!-- Live Interactive Table Grid -->
+            <div class="table-wrap max-h-360 mt-1">
               <table class="data-table editable-table" id="previewTable">
                 <thead></thead>
                 <tbody></tbody>
               </table>
             </div>
-          </details>
+          </div>
         </div>
       </section>
 

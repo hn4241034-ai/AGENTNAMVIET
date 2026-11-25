@@ -341,6 +341,23 @@
     });
     $("#btnAutoFixCommon").addEventListener("click", autoFixCommonErrors);
     $("#btnGoToClean").addEventListener("click", () => enterBusinessContextStep());
+    $("#btnConfirmDataSubset")?.addEventListener("click", () => enterBusinessContextStep());
+    $("#btnResetDataSubset")?.addEventListener("click", () => resetDataSubset());
+    $("#btnSendWranglerCmd")?.addEventListener("click", () => {
+      const input = $("#aiWranglerInput");
+      if (input) handleWranglerCommand(input.value);
+    });
+    $("#aiWranglerInput")?.addEventListener("keydown", (e) => {
+      if (e.key === "Enter" && !e.shiftKey) {
+        e.preventDefault();
+        handleWranglerCommand(e.target.value);
+      }
+    });
+    document.querySelectorAll(".wrangler-quick-btn").forEach(btn => {
+      btn.addEventListener("click", () => {
+        handleWranglerCommand(btn.dataset.prompt);
+      });
+    });
     $("#btnSkipMissingAndNext").addEventListener("click", () => enterBusinessContextStep());
     $("#btnConfirmContextProceedClean").addEventListener("click", () => {
       saveBusinessContextFromUI();
@@ -629,6 +646,20 @@
   function ingestMatrix(matrix, sourceLabel) {
     const parsed = validator.matrixToObjects(matrix, state.config.schema || {});
     parsed.sourceLabel = sourceLabel;
+
+    // Save original dataset deep copy and active headers
+    const headersList = (Array.isArray(parsed.headers) && parsed.headers.length > 0)
+      ? [...parsed.headers]
+      : Object.keys(parsed.rows[0] || {}).filter(k => !k.startsWith("__"));
+    parsed.headers = headersList;
+    state.originalDataset = {
+      headers: [...headersList],
+      rows: parsed.rows.map(r => ({ ...r })),
+      sourceLabel
+    };
+    state.activeHeaders = [...headersList];
+    state.wranglerMessages = [];
+
     state.parsedDataset = parsed;
     state.showErrorDetails = false;
     state.showWarnings = false;
@@ -669,7 +700,7 @@
         autoOpt.value = "auto";
         dsFilter.insertBefore(autoOpt, dsFilter.firstChild);
       }
-      autoOpt.textContent = `📂 File hiện tại: ${sourceLabel} (${parsed.rows.length} dòng)`;
+      autoOpt.textContent = `📂 File hiện tại: ${sourceLabel} (${parsed.rows.length} dòng · ${headersList.length} cột)`;
       dsFilter.value = "auto";
     }
     renderBusinessKpiDashboard("auto", "auto");
@@ -692,12 +723,10 @@
     const errCount = state.validationResult?.errors?.length || 0;
     const btn = $("#btnToggleErrorDetails");
     const errBox = $("#validationErrorBox");
-    const previewDetails = $("#previewDetails");
     if (errCount > 0) {
       btn.classList.remove("hidden");
       btn.textContent = state.showErrorDetails ? `Ẩn lỗi (${errCount})` : `Xem lỗi (${errCount})`;
       errBox.classList.toggle("hidden", !state.showErrorDetails);
-      previewDetails.open = state.showErrorDetails;
     } else {
       btn.classList.add("hidden");
       errBox.classList.add("hidden");
@@ -714,7 +743,6 @@
     const warnBox = $("#validationWarningBox");
     const btnGoClean = $("#btnGoToClean");
     const btnFix = $("#btnAutoFixCommon");
-    const previewDetails = $("#previewDetails");
 
     $("#previewCount").textContent = res.totalRows;
 
@@ -724,15 +752,13 @@
 
       if (res.warnings.length > 0) {
         banner.className = "alert alert-success";
-        banner.innerHTML = `<strong>Định dạng hợp lệ ✓</strong> (${res.totalRows} dòng) — Có <strong>${res.warnings.length}</strong> mục thiếu thông tin.`;
-        previewDetails.open = false;
+        banner.innerHTML = `<strong>Định dạng hợp lệ ✓</strong> (${res.totalRows} dòng) — Có <strong>${res.warnings.length}</strong> mục thiếu thông tin. Bạn có thể kiểm tra bảng và <strong>Chat với AI</strong> để chỉnh sửa cột/dòng trực tiếp bên dưới.`;
         updateWorkflowSteps(2, { validationState: "ok" });
       } else {
         banner.className = "alert alert-success";
-        banner.innerHTML = `<strong>Đầu vào hợp lệ ✓</strong> (${res.totalRows} dòng). Tiếp tục xác nhận <strong>Bối cảnh Doanh nghiệp & Làm sạch</strong>.`;
-        previewDetails.open = false;
-        enterBusinessContextStep();
+        banner.innerHTML = `<strong>Đầu vào hợp lệ ✓</strong> (${res.totalRows} dòng · ${state.activeHeaders?.length || res.headers?.length || 0} cột). Bạn có thể xem toàn bộ bảng biểu, chọn cột hoặc <strong>Chat với AI</strong> để chỉnh sửa dữ liệu trực tiếp bên dưới.`;
       }
+      renderDataStudioUI();
     } else {
       banner.className = "alert alert-danger";
       banner.innerHTML = `<strong>Sai định dạng (${res.errors.length} lỗi)!</strong> Bấm <strong>Tự động Sửa lỗi</strong> hoặc bật <strong>Xem lỗi (${res.errors.length})</strong> để kiểm tra và sửa.`;
@@ -755,6 +781,7 @@
           <td>${escapeHtml(e.suggestion)}</td>
         </tr>
       `).join("");
+      renderDataStudioUI();
     }
 
     syncErrorDetailsUI();
@@ -769,32 +796,252 @@
     } else {
       warnBox.classList.add("hidden");
     }
-
-    renderEditablePreviewTable(res.errors);
   }
 
-  function renderEditablePreviewTable(errors) {
-    const rows = state.parsedDataset.rows || [];
-    const defaultCrmCols = ["lead_id", "company_name", "tax_code", "contact_name", "phone", "email", "industry", "region", "product_interest", "need_description", "budget_vnd", "source_channel", "registered_at"];
-    const cols = (state.parsedDataset.isRetailDataset && state.parsedDataset.headers?.length)
-      ? state.parsedDataset.headers
-      : defaultCrmCols;
+  function renderDataStudioUI() {
+    const container = $("#dataStudioContainer");
+    if (!container) return;
 
-    const errLookup = new Set(errors.map(e => `${e.row}::${e.column}`));
+    const origHeaders = state.originalDataset?.headers || state.parsedDataset?.headers || [];
+    const activeHeaders = state.activeHeaders || origHeaders;
+    const totalRows = state.parsedDataset?.rows?.length || 0;
+
+    if ($("#dataStudioRowCount")) {
+      $("#dataStudioRowCount").innerHTML = `<strong>${totalRows.toLocaleString("vi-VN")}</strong> dòng`;
+    }
+    if ($("#dataStudioColCount")) {
+      $("#dataStudioColCount").innerHTML = `<strong>${origHeaders.length}</strong> cột gốc`;
+    }
+    if ($("#dataStudioActiveColsBadge")) {
+      $("#dataStudioActiveColsBadge").innerHTML = `Đang dùng <strong>${activeHeaders.length}</strong> / ${origHeaders.length} cột`;
+      $("#dataStudioActiveColsBadge").className = `stat-pill ${activeHeaders.length < origHeaders.length ? "amber" : ""}`;
+    }
+    if ($("#colSelectionSummary")) {
+      $("#colSelectionSummary").textContent = activeHeaders.length === origHeaders.length
+        ? "Đang chọn tất cả cột"
+        : `Đã lọc: giữ ${activeHeaders.length} cột, ẩn ${origHeaders.length - activeHeaders.length} cột`;
+    }
+
+    // Render Column Chips
+    const chipsWrap = $("#columnChipsList");
+    if (chipsWrap && origHeaders.length > 0) {
+      chipsWrap.innerHTML = origHeaders.map(h => {
+        const isActive = activeHeaders.includes(h);
+        return `<span class="col-chip ${isActive ? "active" : "inactive"}" data-col="${escapeHtml(h)}" title="${isActive ? "Bấm để bỏ cột" : "Bấm để chọn cột"}">
+          <span>${isActive ? "✓" : "✕"}</span> ${escapeHtml(h)}
+        </span>`;
+      }).join("");
+
+      chipsWrap.querySelectorAll(".col-chip").forEach(chip => {
+        chip.addEventListener("click", () => {
+          const colName = chip.dataset.col;
+          toggleColumnSelection(colName);
+        });
+      });
+    }
+
+    // Initial greeting in AI Wrangler messages if empty
+    if (!state.wranglerMessages || state.wranglerMessages.length === 0) {
+      state.wranglerMessages = [
+        {
+          sender: "ai",
+          text: `👋 <strong>Minh Hoàng AI Data Wrangler đã sẵn sàng!</strong><br/>File của bạn đang có <strong>${totalRows} dòng</strong> và <strong>${origHeaders.length} cột</strong>.<br/>Bạn có thể ra lệnh trực tiếp cho tôi (Ví dụ: <em>"Đang có 50 cột nhưng mình chỉ muốn tính dữ liệu theo 10 cột đầu tiên"</em>, hoặc <em>"Bỏ cột X"</em>), hoặc bấm các nút gợi ý nhanh bên trên!`
+        }
+      ];
+    }
+    renderWranglerMessages();
+
+    // Render Preview Table
+    renderEditablePreviewTable(state.validationResult?.errors || []);
+  }
+
+  function renderWranglerMessages() {
+    const box = $("#aiWranglerMessages");
+    if (!box) return;
+    box.innerHTML = (state.wranglerMessages || []).map(m => `
+      <div class="ai-chat-msg ${m.sender}">
+        <div class="ai-chat-avatar">${m.sender === "ai" ? "🤖" : "👤"}</div>
+        <div class="ai-chat-bubble">${m.text}</div>
+      </div>
+    `).join("");
+    box.scrollTop = box.scrollHeight;
+  }
+
+  function toggleColumnSelection(colName) {
+    if (!state.originalDataset) return;
+    let current = [...(state.activeHeaders || state.originalDataset.headers)];
+    if (current.includes(colName)) {
+      if (current.length <= 1) {
+        alert("Bảng phải có ít nhất 1 cột để phân tích.");
+        return;
+      }
+      current = current.filter(c => c !== colName);
+    } else {
+      current.push(colName);
+    }
+    applyColumnFilter(current);
+  }
+
+  function resetDataSubset() {
+    if (!state.originalDataset) return;
+    applyColumnFilter([...state.originalDataset.headers]);
+  }
+
+  function applyColumnFilter(newHeaders) {
+    if (!state.originalDataset) return;
+    const validHeaders = newHeaders.filter(h => state.originalDataset.headers.includes(h));
+    if (validHeaders.length === 0) return;
+
+    state.activeHeaders = [...validHeaders];
+    state.parsedDataset.headers = [...validHeaders];
+    state.parsedDataset.rows = state.originalDataset.rows.map(r => {
+      const obj = { __rowNumber: r.__rowNumber };
+      validHeaders.forEach(h => { obj[h] = r[h] ?? ""; });
+      return obj;
+    });
+
+    renderDataStudioUI();
+
+    // Dynamically update dashboard and downstream listeners
+    const dsFilter = $("#dashDatasetFilter");
+    if (dsFilter) {
+      let autoOpt = dsFilter.querySelector('option[value="auto"]');
+      if (autoOpt) {
+        autoOpt.textContent = `📂 File hiện tại: ${state.parsedDataset.sourceLabel} (${state.parsedDataset.rows.length} dòng · ${validHeaders.length} cột)`;
+      }
+    }
+    renderBusinessKpiDashboard("auto", "auto", false);
+  }
+
+  async function handleWranglerCommand(cmdText) {
+    if (!cmdText || !cmdText.trim()) return;
+    const text = cmdText.trim();
+    if (!state.originalDataset) return;
+
+    // Append user message
+    state.wranglerMessages.push({ sender: "user", text: escapeHtml(text) });
+    renderWranglerMessages();
+
+    // Clear input
+    const inputEl = $("#aiWranglerInput");
+    if (inputEl) inputEl.value = "";
+
+    const origHeaders = state.originalDataset.headers || [];
+
+    // Case 1: First N columns (Matches exact user request: "Đang có 50 cột nhưng mình chỉ muốn tính dữ liệu theo 10 cột đầu tiên", "chỉ tính 10 cột đầu", "chỉ lấy 5 cột...")
+    const nMatch = text.match(/(?:chỉ\s*(?:lấy|giữ|tính|chọn)|giữ\s*lại|tính\s*dữ\s*liệu\s*theo|chỉ\s*muốn\s*tính|đầu\s*tiên\s*chỉ\s*lấy)\s*(\d+)\s*cột/i)
+      || text.match(/(\d+)\s*cột\s*(?:đầu|đầu\s*tiên)/i)
+      || text.match(/top\s*(\d+)\s*cột/i);
+
+    if (nMatch) {
+      const count = Math.max(1, Math.min(origHeaders.length, parseInt(nMatch[1], 10)));
+      const selectedCols = origHeaders.slice(0, count);
+      applyColumnFilter(selectedCols);
+      state.wranglerMessages.push({
+        sender: "ai",
+        text: `✅ <strong>Đã xử lý thành công theo yêu cầu của bạn!</strong><br/>
+• <strong>Đã chọn giữ lại ${count} cột đầu tiên:</strong> <code>${selectedCols.join("</code>, <code>")}</code>.<br/>
+• <strong>Đã ẩn ${origHeaders.length - count} cột</strong> còn lại.<br/>
+• Bảng dữ liệu bên dưới đã được cập nhật trực quan ngay lập tức. Toàn bộ các bước Bối cảnh, Làm sạch, KPI và Dashboard tiếp theo sẽ tính toán chính xác trên ${count} cột này!`
+      });
+      renderWranglerMessages();
+      return;
+    }
+
+    // Case 2: Reset to all columns
+    if (/khôi\s*phục|reset|toàn\s*bộ|tất\s*cả|mặc\s*định/i.test(text)) {
+      resetDataSubset();
+      state.wranglerMessages.push({
+        sender: "ai",
+        text: `🔄 <strong>Đã khôi phục toàn bộ ${origHeaders.length} cột ban đầu!</strong> Bảng dữ liệu và tất cả các bước phân tích đã được đồng bộ về trạng thái đầy đủ.`
+      });
+      renderWranglerMessages();
+      return;
+    }
+
+    // Case 3: Select core / numeric & dimension columns
+    if (/số\s*liệu|chỉ\s*số|phân\s*loại/i.test(text)) {
+      const sch = detectAdaptiveSchema(state.originalDataset.rows, origHeaders);
+      const kept = [];
+      if (sch.colEntity) kept.push(sch.colEntity);
+      if (sch.colDate && !kept.includes(sch.colDate)) kept.push(sch.colDate);
+      if (sch.colPrimaryDim && !kept.includes(sch.colPrimaryDim)) kept.push(sch.colPrimaryDim);
+      (sch.numericCandidates || []).forEach(c => { if (!kept.includes(c.col)) kept.push(c.col); });
+      if (kept.length > 0) {
+        applyColumnFilter(kept);
+        state.wranglerMessages.push({
+          sender: "ai",
+          text: `📊 <strong>Đã tự động lọc các cột cốt lõi:</strong> Giữ lại <strong>${kept.length} cột</strong> quan trọng nhất (<code>${kept.join("</code>, <code>")}</code>). Đã ẩn các cột phụ trợ.`
+        });
+        renderWranglerMessages();
+        return;
+      }
+    }
+
+    // Case 4: Drop specific named columns
+    if (/bỏ|xóa|loại|ẩn/i.test(text)) {
+      const normText = normalizeViText(text);
+      const toRemove = (state.activeHeaders || origHeaders).filter(h => normText.includes(normalizeViText(h)));
+      if (toRemove.length > 0) {
+        const remain = (state.activeHeaders || origHeaders).filter(h => !toRemove.includes(h));
+        if (remain.length > 0) {
+          applyColumnFilter(remain);
+          state.wranglerMessages.push({
+            sender: "ai",
+            text: `🗑️ <strong>Đã loại bỏ ${toRemove.length} cột:</strong> <code>${toRemove.join("</code>, <code>")}</code>.<br/>Còn lại <strong>${remain.length} cột</strong> đang được dùng để tính toán.`
+          });
+          renderWranglerMessages();
+          return;
+        }
+      }
+    }
+
+    // Case 5: Keep specific named columns
+    const normText = normalizeViText(text);
+    const matchedCols = origHeaders.filter(h => normText.includes(normalizeViText(h)));
+    if (matchedCols.length >= 2) {
+      applyColumnFilter(matchedCols);
+      state.wranglerMessages.push({
+        sender: "ai",
+        text: `🎯 <strong>Đã chọn đích danh ${matchedCols.length} cột theo yêu cầu:</strong> <code>${matchedCols.join("</code>, <code>")}</code>.<br/>Đã ẩn ${origHeaders.length - matchedCols.length} cột còn lại.`
+      });
+      renderWranglerMessages();
+      return;
+    }
+
+    // General fallback
+    state.wranglerMessages.push({
+      sender: "ai",
+      text: `💡 Tôi đã ghi nhận yêu cầu: <em>"${escapeHtml(text)}"</em>.<br/>Bạn có thể bấm vào các nút gợi ý nhanh ở trên (Ví dụ: <strong>⚡ Chỉ tính 10 cột đầu tiên</strong>) hoặc bấm trực tiếp vào từng thẻ cột bên dưới để chọn lọc!`
+    });
+    renderWranglerMessages();
+  }
+
+  function renderEditablePreviewTable(errors = []) {
+    const rows = state.parsedDataset?.rows || [];
+    const cols = (state.activeHeaders && state.activeHeaders.length > 0)
+      ? state.activeHeaders
+      : ((state.parsedDataset?.headers && state.parsedDataset.headers.length > 0)
+          ? state.parsedDataset.headers
+          : Object.keys(rows[0] || {}).filter(k => !k.startsWith("__")));
+
+    const errLookup = new Set((errors || []).map(e => `${e.row}::${e.column}`));
 
     const thead = $("#previewTable thead");
-    thead.innerHTML = `<tr><th>#</th>${cols.map(c => `<th>${c}</th>`).join("")}</tr>`;
+    if (!thead) return;
+    thead.innerHTML = `<tr><th>#</th>${cols.map(c => `<th>${escapeHtml(c)}</th>`).join("")}</tr>`;
 
     const displayLimit = 100; // keep UI responsive even on 700-lead stress test
     const slice = rows.slice(0, displayLimit);
     const tbody = $("#previewTable tbody");
+    if (!tbody) return;
     tbody.innerHTML = slice.map((r, i) => {
       const rowNum = r.__rowNumber || (i + 2);
       return `<tr>
         <td>${rowNum}</td>
         ${cols.map(c => {
           const hasErr = errLookup.has(`${rowNum}::${c}`);
-          return `<td contenteditable="true" data-row-idx="${i}" data-col="${c}" class="${hasErr ? "cell-error" : ""}">${escapeHtml(r[c] ?? "")}</td>`;
+          return `<td contenteditable="true" data-row-idx="${i}" data-col="${escapeHtml(c)}" class="${hasErr ? "cell-error" : ""}">${escapeHtml(r[c] ?? "")}</td>`;
         }).join("")}
       </tr>`;
     }).join("") + (rows.length > displayLimit ? `<tr><td colspan="${cols.length + 1}" class="hint">Đang hiển thị ${displayLimit}/${rows.length} dòng đầu tiên để xem trước mượt mà. Toàn bộ ${rows.length} dòng đều được kiểm tra và xử lý.</td></tr>` : "");
@@ -804,7 +1051,12 @@
       td.addEventListener("input", () => {
         const rIdx = Number(td.dataset.rowIdx);
         const col = td.dataset.col;
-        state.parsedDataset.rows[rIdx][col] = td.textContent.trim();
+        if (state.parsedDataset?.rows?.[rIdx]) {
+          state.parsedDataset.rows[rIdx][col] = td.textContent.trim();
+        }
+        if (state.originalDataset?.rows?.[rIdx]) {
+          state.originalDataset.rows[rIdx][col] = td.textContent.trim();
+        }
         td.classList.remove("cell-error");
       });
     });

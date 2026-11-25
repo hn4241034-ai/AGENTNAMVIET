@@ -1,0 +1,2136 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1.0"/>
+<title>Minh Hoàng AI Data Analyst — Slide Giới thiệu</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
+:root {
+  --amber:    #f59e0b;
+  --amber-d:  #d97706;
+  --amber-l:  #fbbf24;
+  --ink:      #0f0f0f;
+  --ink-2:    #3f3f46;
+  --muted:    #71717a;
+  --bg:       #ffffff;
+  --bg-soft:  #fffdf5;
+  --bg-warm:  #fef9ec;
+  --border:   rgba(15,15,15,0.10);
+  --shadow-s: 0 4px 16px rgba(15,15,15,0.07);
+  --shadow-m: 0 10px 40px rgba(15,15,15,0.11);
+  --shadow-l: 0 24px 64px rgba(15,15,15,0.14);
+  --r:        16px;
+}
+
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body {
+  width: 100%; height: 100%;
+  font-family: 'Inter', system-ui, sans-serif;
+  background: var(--bg); color: var(--ink);
+  overflow: hidden;
+}
+
+/* ══════════════════════════════════
+   GLOBAL AMBIENT CANVAS
+══════════════════════════════════ */
+#glCanvas {
+  position: fixed; inset: 0;
+  width: 100vw; height: 100vh;
+  pointer-events: none; z-index: 0;
+}
+
+/* ══════════════════════════════════
+   DECK & TRANSITIONS
+══════════════════════════════════ */
+.deck { width: 100vw; height: 100vh; position: relative; overflow: hidden; }
+
+.slide {
+  position: absolute; inset: 0;
+  display: flex; flex-direction: column;
+  opacity: 0; pointer-events: none;
+  transition: opacity .6s cubic-bezier(.4,0,.2,1),
+              transform .6s cubic-bezier(.4,0,.2,1);
+  transform: translateX(80px) scale(.98);
+  z-index: 1;
+}
+.slide.active  { opacity:1; pointer-events:auto; transform:translateX(0) scale(1); }
+.slide.exit    { opacity:0; transform:translateX(-80px) scale(.98); }
+
+/* Staggered child entrance */
+.slide.active .s-body > * {
+  animation: fadeUp .55s cubic-bezier(.4,0,.2,1) both;
+}
+.slide.active .s-body > *:nth-child(1) { animation-delay:.08s; }
+.slide.active .s-body > *:nth-child(2) { animation-delay:.18s; }
+.slide.active .s-body > *:nth-child(3) { animation-delay:.28s; }
+.slide.active .s-body > *:nth-child(4) { animation-delay:.38s; }
+@keyframes fadeUp {
+  from { opacity:0; transform:translateY(22px); }
+  to   { opacity:1; transform:translateY(0); }
+}
+
+/* ══════════════════════════════════
+   TOPBAR
+══════════════════════════════════ */
+.s-topbar {
+  flex-shrink: 0;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 14px 48px;
+  background: rgba(255,255,255,0.80);
+  backdrop-filter: blur(20px) saturate(180%);
+  border-bottom: 1px solid var(--border);
+  z-index: 10; position: relative;
+}
+.s-brand { display: flex; align-items: center; gap: 12px; }
+.s-brand-mark {
+  width: 38px; height: 38px; border-radius: 50%;
+  background: linear-gradient(135deg, var(--amber) 0%, var(--amber-d) 100%);
+  color: var(--ink); font-size: 20px; font-weight: 900;
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 4px 18px rgba(245,158,11,0.4), 0 0 0 4px rgba(245,158,11,0.12);
+  animation: brandPulse 3s ease-in-out infinite;
+}
+@keyframes brandPulse {
+  0%,100% { box-shadow: 0 4px 18px rgba(245,158,11,0.4), 0 0 0 4px rgba(245,158,11,0.12); }
+  50%      { box-shadow: 0 4px 24px rgba(245,158,11,0.6), 0 0 0 7px rgba(245,158,11,0.08); }
+}
+.s-brand-name { font-size: 15px; font-weight: 800; letter-spacing: .07em; color: var(--ink); }
+.s-brand-sub  { font-size: 10.5px; color: var(--muted); }
+
+.s-nav { display: flex; gap: 6px; align-items: center; }
+.s-nav-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: rgba(15,15,15,0.15); cursor: pointer;
+  transition: all .35s cubic-bezier(.4,0,.2,1); border: none;
+}
+.s-nav-dot.on { background: var(--amber); width: 28px; border-radius: 4px; }
+.s-slide-num { font-size: 11px; font-weight: 700; color: var(--muted); letter-spacing:.08em; }
+
+/* ══════════════════════════════════
+   BODY
+══════════════════════════════════ */
+.s-body {
+  flex: 1; display: flex;
+  padding: 0 52px 24px;
+  gap: 32px; overflow: hidden; position: relative;
+}
+
+/* ══════════════════════════════════
+   TICKER
+══════════════════════════════════ */
+.ticker-strip {
+  flex-shrink: 0; display: flex; overflow: hidden;
+  background: linear-gradient(90deg, var(--amber) 0%, var(--amber-d) 100%);
+  color: var(--ink); padding: 10px 0;
+  border-top: 1px solid rgba(15,15,15,0.08);
+  position: relative;
+}
+.ticker-strip::before, .ticker-strip::after {
+  content: ''; position: absolute; top:0; bottom:0; width: 60px; z-index: 2;
+}
+.ticker-strip::before { left:0; background: linear-gradient(90deg, var(--amber), transparent); }
+.ticker-strip::after  { right:0; background: linear-gradient(-90deg, var(--amber-d), transparent); }
+.ticker-track {
+  display: flex; white-space: nowrap;
+  animation: ticker 26s linear infinite;
+  font-size: 11px; font-weight: 800; letter-spacing:.08em; text-transform: uppercase;
+}
+.ticker-track span { padding: 0 32px; border-right: 1px solid rgba(0,0,0,0.12); }
+@keyframes ticker { to { transform: translateX(-50%); } }
+
+/* ══════════════════════════════════
+   PROGRESS BAR
+══════════════════════════════════ */
+.progress-bar { position: fixed; bottom:0; left:0; right:0; height: 3px; background: rgba(15,15,15,0.07); z-index:100; }
+.progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--amber) 0%, var(--amber-d) 100%);
+  transition: width .55s cubic-bezier(.4,0,.2,1);
+  box-shadow: 0 0 8px rgba(245,158,11,0.5);
+}
+
+/* ══════════════════════════════════
+   NAV BUTTONS
+══════════════════════════════════ */
+.nav-controls { position:fixed; bottom:28px; right:36px; display:flex; gap:10px; z-index:100; }
+.nav-btn {
+  width: 46px; height: 46px; border-radius: 50%;
+  background: var(--ink); border: none; color: #fff; font-size: 22px;
+  display: flex; align-items: center; justify-content: center;
+  cursor: pointer; transition: all .25s; box-shadow: var(--shadow-m);
+}
+.nav-btn:hover { background: var(--amber); color: var(--ink); transform: scale(1.08); }
+.nav-btn:disabled { opacity:.2; cursor:not-allowed; transform:none; }
+
+/* ── Keyboard hint ── */
+.kb-hint {
+  position: fixed; bottom: 36px; left: 50%; transform: translateX(-50%);
+  display: flex; align-items: center; gap: 7px;
+  font-size: 11px; color: var(--muted); pointer-events: none;
+}
+.kb-hint kbd {
+  background: rgba(15,15,15,0.07); border: 1px solid rgba(15,15,15,0.15);
+  border-radius: 4px; padding: 2px 7px; font-size: 10px; font-family: inherit;
+}
+
+/* ══════════════════════════════════
+   SHARED COMPONENTS
+══════════════════════════════════ */
+.tag {
+  display: inline-flex; align-items: center; gap: 7px;
+  background: rgba(245,158,11,0.12);
+  border: 1px solid rgba(245,158,11,0.3);
+  border-radius: 999px; padding: 5px 16px;
+  font-size: 11px; font-weight: 700; letter-spacing:.09em;
+  color: var(--amber-d); text-transform: uppercase;
+}
+.tag .dot { width: 6px; height: 6px; border-radius: 50%; background: var(--amber); }
+
+.accent-line {
+  display: block; height: 3px; width: 48px;
+  background: linear-gradient(90deg, var(--amber), var(--amber-d));
+  border-radius: 999px; margin-bottom: 16px;
+}
+
+/* Gradient heading underline */
+.u-amber {
+  position: relative; display: inline-block;
+  color: var(--amber-d);
+}
+.u-amber::after {
+  content: ''; position: absolute;
+  left: 0; bottom: -5px; right: 0; height: 4px;
+  background: linear-gradient(90deg, var(--amber), transparent);
+  border-radius: 999px; transform-origin: left;
+  animation: lineGrow .7s .4s cubic-bezier(.4,0,.2,1) both;
+}
+@keyframes lineGrow { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+
+/* ══════════════════════════════════
+   SLIDE 0 (SLIDE 1) — PERSONAL INTRO (LAYOUT CHUẨN ẢNH MẪU)
+══════════════════════════════════ */
+#s0 { background: var(--bg); }
+#s0 .s-body {
+  flex-direction: column; justify-content: space-between;
+  padding: 16px 52px 20px; gap: 16px;
+}
+
+.pi-layout-top {
+  display: grid; grid-template-columns: 1.25fr 0.85fr; align-items: center; gap: 32px;
+  flex: 1;
+}
+
+.pi-left-author {
+  display: flex; flex-direction: column; justify-content: center; gap: 12px;
+}
+.pi-prefix-label {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 11.5px; font-weight: 800; letter-spacing: .12em;
+  color: var(--amber-d); text-transform: uppercase;
+}
+.pi-prefix-label::before {
+  content: ''; display: inline-block; width: 26px; height: 2.5px;
+  background: var(--amber); border-radius: 2px;
+}
+
+.pi-author-name {
+  font-size: clamp(38px, 4.6vw, 60px); font-weight: 900;
+  line-height: .95; letter-spacing: -.03em; color: var(--ink);
+}
+.pi-author-name em {
+  color: var(--amber-d); font-style: normal; display: block;
+}
+
+.pi-badge-group {
+  display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px;
+}
+.pi-badge {
+  display: inline-flex; align-items: center; gap: 5px;
+  background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.28);
+  border-radius: 999px; padding: 3px 10px;
+  font-size: 11px; font-weight: 700; color: var(--amber-d);
+}
+
+.pi-accent-sep {
+  width: 52px; height: 3px;
+  background: linear-gradient(90deg, var(--amber), var(--amber-d));
+  border-radius: 999px;
+}
+
+.pi-author-desc {
+  font-size: 13px; color: var(--ink-2); line-height: 1.65;
+  padding-left: 14px;
+  border-left: 3.5px solid var(--amber);
+  max-width: 560px;
+}
+
+/* Mini Highlights Trio */
+.pi-highlights {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px;
+  margin-top: 4px; max-width: 620px;
+}
+.pi-hl-item {
+  background: #ffffff; border: 1px solid rgba(15,15,15,0.08);
+  border-radius: 12px; padding: 10px 12px;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+  transition: transform .2s, border-color .2s;
+}
+.pi-hl-item:hover {
+  transform: translateY(-2px);
+  border-color: rgba(245,158,11,0.35);
+}
+.pi-hl-title {
+  font-size: 11px; font-weight: 800; color: var(--ink);
+  display: flex; align-items: center; gap: 5px; margin-bottom: 3px;
+}
+.pi-hl-title span { color: var(--amber); }
+.pi-hl-desc {
+  font-size: 10.5px; color: var(--muted); line-height: 1.4;
+}
+
+/* Right Project Card - Rich & Well-Balanced */
+.pi-main-project-card {
+  width: 100%; max-width: 370px; justify-self: end;
+  background: linear-gradient(155deg, #ffffff 0%, #fffdf5 45%, #fef3c7 100%);
+  border: 1.5px solid var(--amber);
+  border-radius: 18px;
+  padding: 20px 22px;
+  display: flex; flex-direction: column; gap: 11px;
+  position: relative; overflow: hidden;
+  box-shadow: 0 10px 28px rgba(245,158,11,0.14);
+}
+.pi-watermark-mh {
+  position: absolute; right: 14px; top: 6px;
+  font-size: 80px; font-weight: 900;
+  color: rgba(245,158,11,0.15); letter-spacing: -.04em;
+  line-height: 1; pointer-events: none; user-select: none;
+}
+.pi-card-topbar {
+  display: flex; justify-content: space-between; align-items: center;
+  z-index: 2;
+}
+.pi-project-icon-box {
+  width: 42px; height: 42px; border-radius: 12px;
+  background: #ffffff; border: 1.5px solid rgba(245,158,11,0.3);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 3px 10px rgba(245,158,11,0.16);
+}
+.pi-live-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: #ffffff; border: 1px solid rgba(245,158,11,0.3);
+  border-radius: 999px; padding: 4px 10px;
+  font-size: 10px; font-weight: 800; color: var(--amber-d);
+  letter-spacing: .06em; box-shadow: 0 2px 6px rgba(245,158,11,0.1);
+}
+.pi-live-dot {
+  width: 7px; height: 7px; border-radius: 50%; background: #10b981;
+  box-shadow: 0 0 6px rgba(16,185,129,0.6);
+  animation: pulseDot 2s infinite;
+}
+@keyframes pulseDot { 0%,100%{opacity:1;transform:scale(1);} 50%{opacity:.4;transform:scale(.85);} }
+
+.pi-project-meta-lbl {
+  font-size: 10px; font-weight: 800; color: var(--muted);
+  letter-spacing: .09em; text-transform: uppercase; margin-bottom: 2px;
+  z-index: 2;
+}
+.pi-project-meta-val {
+  font-size: 21px; font-weight: 900;
+  line-height: 1.2; color: var(--ink); z-index: 2;
+}
+.pi-project-meta-val span {
+  color: var(--amber-d); display: block;
+}
+.pi-project-meta-sub {
+  font-size: 11px; color: var(--ink-2); font-weight: 500; margin-top: 2px;
+  z-index: 2; line-height: 1.4;
+}
+
+.pi-card-stats {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px;
+  background: #ffffff; border: 1px solid rgba(245,158,11,0.22);
+  border-radius: 12px; padding: 8px 10px; margin-top: 2px;
+  z-index: 2;
+}
+.pi-card-stat { text-align: center; }
+.pi-card-stat strong {
+  display: block; font-size: 13.5px; font-weight: 900; color: var(--amber-d);
+  line-height: 1.1;
+}
+.pi-card-stat small {
+  display: block; font-size: 9px; font-weight: 700; color: var(--muted);
+  text-transform: uppercase; margin-top: 2px;
+}
+
+.pi-card-tags {
+  display: flex; gap: 6px; flex-wrap: wrap; z-index: 2;
+}
+.pi-card-tag {
+  font-size: 9.5px; font-weight: 700; color: var(--ink-2);
+  background: rgba(15,15,15,0.04); border: 1px solid rgba(15,15,15,0.08);
+  border-radius: 6px; padding: 2px 7px;
+}
+
+/* Bottom 4 Cards Row */
+.pi-bottom-trio {
+  display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;
+}
+.pi-trio-card {
+  background: #ffffff;
+  border: 1px solid rgba(15,15,15,0.11);
+  border-radius: 14px; padding: 13px 18px;
+  display: flex; align-items: center; gap: 14px;
+  box-shadow: 0 4px 14px rgba(0,0,0,0.04);
+  transition: transform .22s, box-shadow .22s, border-color .22s;
+}
+.pi-trio-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-m);
+  border-color: rgba(245,158,11,0.35);
+}
+.pi-trio-icon-box {
+  width: 42px; height: 42px; border-radius: 12px; flex-shrink: 0;
+  background: linear-gradient(135deg, #fffdf5 0%, #fef3c7 100%);
+  border: 1px solid rgba(245,158,11,0.3);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 8px rgba(245,158,11,0.15);
+}
+.pi-trio-info small {
+  display: block; font-size: 10px; font-weight: 800; color: var(--muted);
+  letter-spacing: .08em; text-transform: uppercase;
+}
+.pi-trio-info strong {
+  display: block; font-size: 14.5px; font-weight: 800; color: var(--ink);
+  margin-top: 2px;
+}
+
+.pi-bottom-amber-bar {
+  height: 6px; width: 100%;
+  background: linear-gradient(90deg, var(--amber) 0%, var(--amber-d) 100%);
+  flex-shrink: 0;
+}
+
+/* ══════════════════════════════════
+   SLIDE 2 (SLIDE 3) — BÀI TOÁN (CHUẨN ẢNH MẪU + STICKERS VÀNG TRẮNG)
+══════════════════════════════════ */
+#s2 { background: var(--bg); }
+#s2 .s-body {
+  flex-direction: column; justify-content: space-between;
+  padding: 16px 52px 24px; gap: 14px;
+}
+
+.pain-header-wrap { margin-bottom: 2px; }
+.pain-tag-pill {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.28);
+  border-radius: 999px; padding: 4px 13px;
+  font-size: 11px; font-weight: 800; color: var(--amber-d);
+  letter-spacing: .08em; text-transform: uppercase; margin-bottom: 8px;
+}
+.pain-tag-pill .dot {
+  width: 6px; height: 6px; border-radius: 50%; background: var(--amber);
+}
+
+.pain-title-large {
+  font-size: clamp(28px, 3.5vw, 44px); font-weight: 900;
+  line-height: 1.05; letter-spacing: -.025em; color: var(--ink);
+}
+
+.pain-cards-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px;
+  align-items: stretch;
+}
+
+.pain-feature-card {
+  background: #ffffff;
+  border: 1px solid rgba(15,15,15,0.11);
+  border-radius: 18px; padding: 20px 20px 16px;
+  display: flex; flex-direction: column; justify-content: space-between;
+  position: relative; overflow: hidden;
+  box-shadow: 0 4px 18px rgba(0,0,0,0.04);
+  transition: transform .25s, box-shadow .25s, border-color .25s;
+  min-height: 250px;
+}
+.pain-feature-card:hover {
+  transform: translateY(-3px);
+  box-shadow: var(--shadow-l);
+  border-color: rgba(245,158,11,0.35);
+}
+.pain-feature-card.highlighted {
+  border: 1.8px solid var(--amber);
+  box-shadow: 0 8px 28px rgba(245,158,11,0.18);
+  background: #ffffff;
+}
+
+.pain-card-top-row {
+  display: flex; align-items: center; justify-content: space-between;
+  margin-bottom: 12px;
+}
+.pain-card-icon-circle {
+  width: 36px; height: 36px; border-radius: 10px;
+  background: linear-gradient(135deg, #fffdf5 0%, #fef3c7 100%);
+  border: 1px solid rgba(245,158,11,0.25);
+  display: flex; align-items: center; justify-content: center;
+  box-shadow: 0 2px 6px rgba(245,158,11,0.15);
+}
+.pain-pill-label {
+  background: rgba(245,158,11,0.14); border-radius: 6px;
+  padding: 3px 10px; font-size: 10px; font-weight: 800;
+  color: var(--amber-d); letter-spacing: .06em;
+}
+.pain-card-num-watermark {
+  font-size: 42px; font-weight: 900; line-height: 1;
+  color: rgba(245,158,11,0.15); letter-spacing: -.04em;
+}
+
+.pain-feature-card h3 {
+  font-size: 15px; font-weight: 800; color: var(--ink);
+  margin-bottom: 6px; line-height: 1.3;
+}
+.pain-feature-card p {
+  font-size: 12px; color: var(--ink-2); line-height: 1.6;
+  margin-bottom: 10px;
+}
+
+/* Bottom sticker / illustration in yellow & white */
+.pain-card-sticker-area {
+  display: flex; justify-content: flex-end; align-items: flex-end;
+  height: 64px; margin-top: auto;
+}
+.pain-sticker-wrap {
+  display: flex; align-items: center; justify-content: center;
+  filter: drop-shadow(0 4px 10px rgba(245,158,11,0.18));
+}
+
+/* Bottom Highlight Solution Bar */
+.pain-solution-bar {
+  display: flex; align-items: center; gap: 12px;
+  background: #fffdf5;
+  border: 1px solid rgba(245,158,11,0.25);
+  border-left: 4.5px solid var(--amber-d);
+  border-radius: 12px; padding: 13px 20px;
+  box-shadow: 0 2px 12px rgba(245,158,11,0.06);
+}
+.pain-solution-bar .star-gold {
+  color: var(--amber-d); font-size: 20px; flex-shrink: 0;
+}
+.pain-solution-bar p {
+  font-size: 12.5px; color: var(--ink-2); line-height: 1.55; margin: 0;
+}
+.pain-solution-bar strong {
+  color: var(--ink);
+}
+
+/* ══════════════════════════════════
+   SLIDE 1 — COVER
+══════════════════════════════════ */
+#s1 {
+  background: radial-gradient(ellipse at 76% 18%, rgba(245,158,11,0.13) 0%, transparent 52%),
+              radial-gradient(ellipse at 15% 85%, rgba(245,158,11,0.07) 0%, transparent 45%),
+              var(--bg);
+}
+#s1 .s-body { flex-direction: column; justify-content: center; padding-top: 0; gap: 20px; }
+
+.cover-kicker-wrap { display: flex; align-items: center; gap: 12px; }
+.cover-kicker-line { flex: 0 0 32px; height: 1px; background: var(--amber); }
+
+.cover-title {
+  font-size: clamp(50px,7vw,86px); font-weight: 900;
+  line-height: .92; letter-spacing: -.03em; color: var(--ink);
+}
+.cover-title .hl-wrap { position: relative; display: inline-block; }
+.cover-title .hl-text { color: var(--amber-d); position: relative; z-index: 1; }
+.cover-title .hl-bg {
+  position: absolute; left: -6px; right: -6px; bottom: 4px; top: 4px;
+  background: rgba(245,158,11,0.12); border-radius: 8px; z-index: 0;
+  transform: rotate(-.5deg);
+}
+
+.cover-sub {
+  font-size: 17px; color: var(--ink-2); line-height: 1.65;
+  max-width: 520px; font-weight: 400;
+}
+
+.cover-tags { display: flex; gap: 10px; flex-wrap: wrap; }
+.cover-tag {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 999px; padding: 7px 20px;
+  font-size: 12px; font-weight: 600; color: var(--ink-2);
+  box-shadow: var(--shadow-s);
+  transition: all .22s;
+}
+.cover-tag:hover { border-color: var(--amber); color: var(--amber-d); transform: translateY(-2px); box-shadow: var(--shadow-m); }
+
+.cover-deco {
+  position: absolute; right: 56px; top: 50%; transform: translateY(-50%);
+  pointer-events: none;
+}
+.cover-deco-ring {
+  width: clamp(180px,22vw,280px); height: clamp(180px,22vw,280px);
+  border-radius: 50%;
+  border: 2px solid rgba(245,158,11,0.15);
+  display: flex; align-items: center; justify-content: center;
+  animation: ringPulse 4s ease-in-out infinite;
+  position: relative;
+}
+.cover-deco-ring::before {
+  content: ''; position: absolute; inset: -16px;
+  border-radius: 50%; border: 1px solid rgba(245,158,11,0.08);
+}
+.cover-deco-ring::after {
+  content: ''; position: absolute; inset: 16px;
+  border-radius: 50%; border: 1px dashed rgba(245,158,11,0.2);
+  animation: ringPulse 4s 1s ease-in-out infinite reverse;
+}
+@keyframes ringPulse { 0%,100% { transform: scale(1); opacity:1; } 50% { transform: scale(1.04); opacity:.7; } }
+.cover-deco-inner {
+  font-size: clamp(50px,8vw,100px); font-weight: 900;
+  color: var(--amber); line-height: 1; z-index: 1;
+  animation: spin8 24s linear infinite;
+}
+@keyframes spin8 { to { transform: rotate(360deg); } }
+
+/* ══════════════════════════════════
+   SLIDE 2 — BÀI TOÁN
+══════════════════════════════════ */
+#s2 { background: var(--bg); }
+#s2 .s-body { flex-direction: column; justify-content: center; gap: 18px; padding-top: 20px; }
+
+.pain-head-row { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+.pain-head-row h2 {
+  font-size: clamp(28px,3.8vw,48px); font-weight: 900;
+  letter-spacing: -.025em; line-height: 1.0; color: var(--ink);
+}
+.pain-counter {
+  flex-shrink: 0; font-size: 80px; font-weight: 900;
+  color: rgba(245,158,11,0.10); letter-spacing: -.06em; line-height: 1;
+}
+
+.pain-grid { display: grid; grid-template-columns: repeat(3,1fr); gap: 14px; }
+
+.pain-card {
+  background: var(--bg);
+  border: 1px solid var(--border);
+  border-radius: 20px; padding: 24px 22px;
+  position: relative; overflow: hidden;
+  transition: transform .3s cubic-bezier(.4,0,.2,1), box-shadow .3s, border-color .3s;
+  cursor: default;
+}
+.pain-card::after {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(135deg, rgba(245,158,11,0.06) 0%, transparent 60%);
+  opacity: 0; transition: opacity .3s;
+}
+.pain-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-l); border-color: rgba(245,158,11,0.3); }
+.pain-card:hover::after { opacity: 1; }
+
+.pain-num {
+  font-size: 54px; font-weight: 900; line-height: 1;
+  color: rgba(245,158,11,0.15); letter-spacing: -.05em;
+  position: absolute; right: 18px; top: 12px;
+}
+.pain-icon-wrap {
+  width: 44px; height: 44px; border-radius: 14px;
+  background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.22);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 20px; margin-bottom: 14px;
+}
+.pain-card h3 { font-size: 15px; font-weight: 700; color: var(--ink); margin-bottom: 8px; }
+.pain-card p  { font-size: 12.5px; color: var(--ink-2); line-height: 1.65; }
+.pain-badge {
+  display: inline-block; background: rgba(245,158,11,0.15);
+  border-radius: 6px; padding: 2px 10px; margin-bottom: 10px;
+  font-size: 10px; font-weight: 800; color: var(--amber-d); letter-spacing:.05em;
+}
+.pain-answer {
+  display: flex; align-items: flex-start; gap: 12px;
+  background: linear-gradient(90deg, rgba(245,158,11,0.10), rgba(245,158,11,0.03));
+  border: 1px solid rgba(245,158,11,0.25);
+  border-left: 4px solid var(--amber);
+  border-radius: 12px; padding: 15px 18px;
+}
+.pain-answer .star { font-size: 20px; color: var(--amber-d); flex-shrink: 0; margin-top: 1px; }
+.pain-answer p { font-size: 13px; color: var(--ink-2); line-height: 1.6; }
+.pain-answer strong { color: var(--ink); }
+
+/* ══════════════════════════════════
+   SLIDE 3 — 6 BƯỚC NGUYÊN MẪU AGENT (WF-SPLIT-GRID)
+══════════════════════════════════ */
+#s3 { background: var(--bg); }
+#s3 .s-body { flex-direction: column; justify-content: center; gap: 14px; padding-top: 10px; }
+
+.wf-slide-head h2 {
+  font-size: clamp(26px,3.2vw,40px); font-weight: 900;
+  letter-spacing: -.025em; line-height: 1.05; color: var(--ink); margin-bottom: 6px;
+}
+.wf-slide-head p {
+  font-size: 13px; color: var(--muted);
+}
+
+.wf-split-grid {
+  display: grid;
+  grid-template-columns: 0.88fr 1.35fr;
+  gap: 32px;
+  align-items: center;
+}
+
+.wf-preview-screen {
+  background: linear-gradient(155deg, #ffffff 0%, #fffdf5 45%, #fef3c7 100%);
+  border: 1.5px solid rgba(15,15,15,0.14);
+  border-radius: 18px;
+  padding: 26px 24px;
+  min-height: 290px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 12px 36px rgba(15,15,15,0.08);
+  position: relative;
+  overflow: hidden;
+  transition: all .3s cubic-bezier(.4,0,.2,1);
+}
+.wf-preview-screen::before {
+  content: ''; position: absolute; top:0; left:0; right:0; height:3px;
+  background: linear-gradient(90deg, var(--amber), var(--amber-d));
+}
+
+.preview-chip {
+  display: inline-block; align-self: flex-start;
+  background: var(--amber); color: var(--ink);
+  border-radius: 999px; padding: 5px 13px;
+  font-size: 10.5px; font-weight: 800; letter-spacing: .06em;
+  text-transform: uppercase; box-shadow: 0 2px 8px rgba(245,158,11,0.25);
+}
+
+.preview-metric {
+  font-size: clamp(24px,2.6vw,32px);
+  font-weight: 900; color: var(--ink);
+  letter-spacing: -.02em; margin: 14px 0 6px;
+  line-height: 1.1;
+}
+
+.wf-preview-screen h4 {
+  margin: 0 0 10px;
+  font-size: 16px; font-weight: 700; color: var(--ink);
+}
+
+.wf-preview-screen p {
+  margin: 0 0 16px;
+  font-size: 13px; color: var(--ink-2);
+  line-height: 1.6;
+}
+
+.preview-footer {
+  display: flex; align-items: center; gap: 8px;
+  font-size: 12.5px; color: var(--ink); font-weight: 700;
+  border-top: 1px solid rgba(15,15,15,0.1);
+  padding-top: 14px;
+}
+.live-dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--amber-d);
+  box-shadow: 0 0 0 3px rgba(217, 119, 6, 0.25);
+  animation: dotPulse 2s infinite;
+}
+@keyframes dotPulse {
+  0%,100% { transform: scale(1); opacity:1; }
+  50% { transform: scale(1.2); opacity:.7; }
+}
+
+.wf-numbered-list {
+  display: flex; flex-direction: column;
+}
+
+.wf-list-item {
+  display: grid;
+  grid-template-columns: 36px 1fr 24px;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(15,15,15,0.08);
+  cursor: pointer;
+  border-radius: 10px;
+  transition: all .2s cubic-bezier(.4,0,.2,1);
+}
+.wf-list-item:first-child {
+  border-top: 1px solid rgba(15,15,15,0.08);
+}
+.wf-list-item:hover, .wf-list-item.active {
+  background: rgba(245, 158, 11, 0.12);
+  padding-left: 18px;
+}
+.wf-idx {
+  font-size: 13px; font-weight: 700; color: var(--muted);
+}
+.wf-list-item.active .wf-idx {
+  color: var(--ink); font-weight: 900;
+}
+.wf-item-body strong {
+  display: block; font-size: 14px; font-weight: 700;
+  color: var(--ink); line-height: 1.3;
+}
+.wf-item-body small {
+  display: block; font-size: 11.5px; color: var(--muted);
+  margin-top: 2px; line-height: 1.4;
+}
+.wf-item-arrow {
+  color: var(--muted); font-weight: 800; font-size: 14px;
+  text-align: right; transition: transform .2s;
+}
+.wf-list-item:hover .wf-item-arrow, .wf-list-item.active .wf-item-arrow {
+  color: var(--ink); transform: translate(2px,-2px);
+}
+
+/* ══════════════════════════════════
+   SLIDE 4 — TÍNH NĂNG + UI MOCK
+══════════════════════════════════ */
+#s4 {
+  background: radial-gradient(ellipse at 90% 50%, rgba(245,158,11,0.09) 0%, transparent 50%),
+              var(--bg);
+}
+#s4 .s-body { flex-direction: row; align-items: stretch; padding-top: 24px; gap: 28px; }
+
+.feat-left {
+  flex: 0 0 290px; display: flex; flex-direction: column;
+  justify-content: center; gap: 14px;
+}
+.feat-h2 {
+  font-size: clamp(24px,3vw,38px); font-weight: 900;
+  color: var(--ink); letter-spacing: -.025em; line-height: 1.1;
+}
+.feat-p { font-size: 13px; color: var(--ink-2); line-height: 1.65; }
+
+.feat-domains { display: flex; flex-direction: column; gap: 7px; }
+.feat-domain {
+  display: flex; align-items: center; gap: 10px;
+  padding: 9px 14px; border-radius: 10px;
+  background: var(--bg); border: 1px solid var(--border);
+  font-size: 12px; font-weight: 600; color: var(--ink-2);
+  transition: all .22s;
+}
+.feat-domain:hover { border-color: var(--amber); color: var(--ink); transform: translateX(4px); background: var(--bg-warm); }
+.feat-domain .num { font-size: 10px; font-weight: 800; color: var(--amber-d); width: 18px; }
+
+.feat-right { flex: 1; display: flex; flex-direction: column; gap: 12px; }
+
+/* Light agent UI mock */
+.mock-ui {
+  flex: 1; background: #fff;
+  border: 1.5px solid var(--border); border-radius: 18px; overflow: hidden;
+  box-shadow: var(--shadow-l); display: flex; flex-direction: column;
+}
+.mock-bar {
+  background: rgba(249,249,249,0.95);
+  border-bottom: 1px solid var(--border);
+  padding: 10px 16px; display: flex; align-items: center; gap: 10px;
+}
+.mock-dots { display: flex; gap: 5px; }
+.mock-dots span { width: 10px; height: 10px; border-radius: 50%; }
+.mock-dots span:nth-child(1) { background: #ef4444; }
+.mock-dots span:nth-child(2) { background: var(--amber); }
+.mock-dots span:nth-child(3) { background: #22c55e; }
+.mock-addr {
+  flex: 1; background: rgba(15,15,15,0.05);
+  border: 1px solid var(--border); border-radius: 6px;
+  padding: 4px 12px; font-size: 10.5px; color: var(--muted);
+}
+.mock-live { font-size: 10px; color: #15803d; font-weight: 800; letter-spacing:.04em; }
+
+.kpi-row { display: flex; gap: 8px; padding: 12px 14px 0; }
+.kpi-card {
+  flex: 1; background: var(--bg-warm);
+  border: 1px solid rgba(245,158,11,0.18); border-radius: 10px; padding: 10px 12px;
+  transition: transform .2s;
+}
+.kpi-card:hover { transform: scale(1.03); }
+.kpi-label { font-size: 9.5px; color: var(--muted); font-weight: 600; margin-bottom: 4px; }
+.kpi-val   { font-size: 15px; font-weight: 900; color: var(--ink); }
+.kpi-delta { font-size: 9.5px; color: var(--muted); margin-top: 2px; }
+
+.mock-chat { padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 7px; }
+.mock-msg {
+  padding: 8px 12px; border-radius: 10px;
+  font-size: 10.5px; line-height: 1.55; max-width: 90%;
+}
+.mock-msg.ai   { background: rgba(245,158,11,0.09); border: 1px solid rgba(245,158,11,0.2); align-self:flex-start; color: var(--ink-2); }
+.mock-msg.user { background: var(--bg-soft); border: 1px solid var(--border); align-self:flex-end; color: var(--ink-2); }
+
+/* Feature 2-col grid */
+.feat-g2 { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.feat-mini {
+  background: var(--bg); border: 1px solid var(--border); border-radius: 12px;
+  padding: 14px; display: flex; align-items: flex-start; gap: 10px;
+  transition: all .22s; box-shadow: var(--shadow-s);
+}
+.feat-mini:hover { border-color: var(--amber); transform: translateY(-2px); box-shadow: var(--shadow-m); }
+.feat-mini-ic {
+  width: 32px; height: 32px; border-radius: 9px; flex-shrink: 0;
+  background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.22);
+  display: flex; align-items: center; justify-content: center; font-size: 14px;
+}
+.feat-mini h3 { font-size: 12px; font-weight: 700; color: var(--ink); margin-bottom: 3px; }
+.feat-mini p  { font-size: 10.5px; color: var(--muted); line-height: 1.55; }
+
+/* ══════════════════════════════════
+   SLIDE 5 — LỢI ÍCH VƯỢT TRỘI (2X2 GRID + CHÂN THỰC DỮ LIỆU AGENT)
+══════════════════════════════════ */
+#s5 {
+  background: radial-gradient(ellipse at 50% 0%, rgba(245,158,11,0.10) 0%, transparent 60%),
+              var(--bg);
+}
+#s5 .s-body {
+  flex-direction: column; justify-content: flex-start;
+  padding-top: 14px; gap: 14px;
+}
+
+.benefit-head {
+  display: flex; align-items: flex-end; justify-content: space-between;
+}
+.benefit-title {
+  font-size: clamp(24px, 3.1vw, 36px); font-weight: 900;
+  line-height: 1.05; letter-spacing: -.025em; color: var(--ink);
+}
+.benefit-title .hl-amber {
+  color: var(--amber-d);
+}
+
+.benefit-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  flex: 1;
+}
+
+.benefit-card {
+  background: #ffffff;
+  border: 1.5px solid rgba(15,15,15,0.11);
+  border-radius: 16px;
+  padding: 16px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  box-shadow: 0 6px 20px rgba(15,15,15,0.05);
+  transition: transform .25s, box-shadow .25s, border-color .25s;
+  position: relative;
+  overflow: hidden;
+}
+.benefit-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 12px 32px rgba(15,15,15,0.09);
+  border-color: rgba(245,158,11,0.35);
+}
+
+.benefit-card-title {
+  font-size: 13.5px;
+  font-weight: 800;
+  color: var(--ink);
+  letter-spacing: .02em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+.benefit-card-visual {
+  flex: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(135deg, rgba(254,249,236,0.6) 0%, rgba(255,255,255,0.9) 100%);
+  border: 1px solid rgba(245,158,11,0.15);
+  border-radius: 12px;
+  padding: 10px 14px;
+  margin-bottom: 8px;
+  min-height: 120px;
+}
+
+.benefit-card-foot strong {
+  display: block;
+  font-size: 12px;
+  font-weight: 700;
+  color: var(--ink);
+}
+.benefit-card-foot small {
+  display: block;
+  font-size: 10.5px;
+  color: var(--muted);
+  margin-top: 1px;
+}
+
+/* Visual 1: Flow Data -> Dashboard -> Decision */
+.v1-flow {
+  display: flex; align-items: center; justify-content: space-between;
+  width: 100%; gap: 8px;
+}
+.v1-files {
+  display: flex; flex-direction: column; gap: 4px; font-size: 10px; font-weight: 700;
+}
+.v1-file-badge {
+  background: #ffffff; border: 1px solid var(--border);
+  padding: 3px 8px; border-radius: 6px; box-shadow: var(--shadow-s);
+  display: flex; align-items: center; gap: 4px; color: var(--ink);
+}
+.v1-arrow {
+  color: var(--amber-d); font-size: 16px; font-weight: 900;
+}
+.v1-mock {
+  background: #ffffff; border: 1px solid var(--border);
+  border-radius: 10px; padding: 8px 12px; box-shadow: var(--shadow-s);
+  min-width: 140px;
+}
+.v1-mock-row {
+  display: flex; justify-content: space-between; align-items: center; font-size: 9.5px;
+  margin-bottom: 4px;
+}
+.v1-mock-kpi {
+  font-size: 14px; font-weight: 900; color: var(--ink);
+}
+.v1-mock-delta {
+  font-size: 9px; color: var(--amber-d); font-weight: 700;
+}
+.v1-decision {
+  display: flex; flex-direction: column; align-items: center; gap: 3px;
+}
+.v1-check-circle {
+  width: 32px; height: 32px; border-radius: 50%;
+  background: #15803d; color: #fff;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 16px; font-weight: 900;
+  box-shadow: 0 4px 12px rgba(22,163,74,0.35);
+}
+.v1-decision span {
+  font-size: 10px; font-weight: 800; color: var(--ink); letter-spacing: .04em;
+}
+
+/* Visual 2: Spoke Network 5 Domains */
+.v2-network {
+  position: relative; width: 100%; height: 110px;
+  display: flex; align-items: center; justify-content: center;
+}
+.v2-center {
+  background: linear-gradient(135deg, var(--amber) 0%, var(--amber-d) 100%);
+  color: var(--ink); font-weight: 900; font-size: 10.5px;
+  padding: 8px 14px; border-radius: 999px;
+  box-shadow: 0 4px 16px rgba(245,158,11,0.4);
+  z-index: 2; display: flex; align-items: center; gap: 4px;
+}
+.v2-spokes {
+  position: absolute; inset: 0; display: flex;
+  justify-content: space-between; align-items: center;
+}
+.v2-col {
+  display: flex; flex-direction: column; gap: 6px;
+}
+.v2-badge {
+  background: #ffffff; border: 1px solid var(--border);
+  padding: 3px 8px; border-radius: 999px;
+  font-size: 9.5px; font-weight: 700; color: var(--ink-2);
+  display: flex; align-items: center; gap: 4px;
+  box-shadow: 0 2px 6px rgba(0,0,0,0.04);
+}
+
+/* Visual 3: Chat 2-way */
+.v3-chat-flow {
+  display: flex; align-items: center; width: 100%; gap: 10px;
+}
+.v3-user-bubble {
+  background: #ffffff; border: 1px solid var(--border);
+  border-radius: 10px; padding: 7px 10px;
+  font-size: 10px; color: var(--ink); flex: 1;
+  box-shadow: var(--shadow-s);
+}
+.v3-user-bubble strong { color: var(--amber-d); display: block; font-size: 9px; margin-bottom: 2px; }
+.v3-agent-res {
+  background: #ffffff; border: 1px solid rgba(245,158,11,0.25);
+  border-radius: 10px; padding: 7px 10px; flex: 1.3;
+  box-shadow: var(--shadow-s);
+}
+.v3-agent-res-top {
+  display: flex; justify-content: space-between; align-items: center;
+  font-size: 9px; font-weight: 700; color: var(--amber-d); margin-bottom: 3px;
+}
+.v3-agent-res p {
+  font-size: 10px; color: var(--ink); line-height: 1.4; margin: 0;
+}
+
+/* Visual 4: 4 Live Charts */
+.v4-charts-grid {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 6px; width: 100%;
+}
+.v4-mini-box {
+  background: #ffffff; border: 1px solid var(--border);
+  border-radius: 8px; padding: 6px 8px;
+}
+.v4-mini-title {
+  font-size: 8.5px; font-weight: 800; color: var(--muted);
+  text-transform: uppercase; margin-bottom: 4px;
+}
+
+/* Bottom CTA */
+.benefit-bottom-cta {
+  display: flex; justify-content: center; align-items: center;
+}
+.btn-cta-experience {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px;
+  background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+  border: 1.5px solid var(--amber);
+  color: var(--ink);
+  font-size: 13.5px; font-weight: 800; letter-spacing: .04em;
+  padding: 11px 34px; border-radius: 999px;
+  cursor: pointer; text-decoration: none;
+  box-shadow: 0 4px 18px rgba(245,158,11,0.28);
+  transition: all .25s cubic-bezier(.4,0,.2,1);
+}
+.btn-cta-experience:hover {
+  background: linear-gradient(135deg, #fde68a 0%, #f59e0b 100%);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 26px rgba(245,158,11,0.4);
+}
+
+/* ══════════════════════════════════
+   SLIDE 6 — PHỤ LỤC PHẢN BIỆN (DEFENSE APPENDIX)
+══════════════════════════════════ */
+#s6 { background: var(--bg); }
+#s6 .s-body {
+  flex-direction: column; justify-content: flex-start;
+  padding: 10px 52px 20px; gap: 12px;
+}
+.defense-head {
+  display: flex; justify-content: space-between; align-items: flex-end;
+  margin-bottom: 2px;
+}
+.defense-tag {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(245,158,11,0.12); border: 1px solid rgba(245,158,11,0.3);
+  color: var(--amber-d); font-size: 11px; font-weight: 800;
+  text-transform: uppercase; letter-spacing: .08em; padding: 4px 12px; border-radius: 999px;
+  margin-bottom: 4px;
+}
+.defense-title {
+  font-size: clamp(24px, 2.7vw, 34px); font-weight: 900; line-height: 1.1; color: var(--ink);
+  letter-spacing: -.02em;
+}
+.defense-meta {
+  font-size: 11px; font-weight: 800; color: var(--muted);
+  letter-spacing: .08em; text-transform: uppercase;
+}
+.defense-grid {
+  display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; flex: 1;
+}
+.defense-card {
+  background: #ffffff; border: 1px solid rgba(15,15,15,0.1); border-radius: 14px;
+  padding: 14px 16px; display: flex; flex-direction: column; gap: 8px;
+  box-shadow: 0 4px 16px rgba(0,0,0,0.03); position: relative; overflow: hidden;
+  border-left: 4px solid var(--amber);
+  transition: transform .2s, box-shadow .2s;
+}
+.defense-card:hover {
+  transform: translateY(-2px); box-shadow: 0 8px 24px rgba(245,158,11,0.12);
+}
+.defense-card-header {
+  display: flex; align-items: center; justify-content: space-between;
+}
+.defense-card-title {
+  font-size: 13px; font-weight: 800; color: var(--ink); text-transform: uppercase;
+  letter-spacing: .05em; display: flex; align-items: center; gap: 8px;
+}
+.defense-card-title span {
+  width: 20px; height: 20px; border-radius: 6px;
+  background: rgba(245,158,11,0.15); color: var(--amber-d);
+  display: inline-flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 900;
+}
+.defense-card-badge {
+  font-size: 9px; font-weight: 800; color: var(--amber-d);
+  background: #fffdf5; border: 1px solid rgba(245,158,11,0.3);
+  padding: 2px 7px; border-radius: 999px; letter-spacing: .04em;
+}
+.defense-list {
+  list-style: none; padding: 0; margin: 0; display: flex; flex-direction: column; gap: 6px;
+}
+.defense-list li {
+  font-size: 11.5px; color: var(--ink-2); line-height: 1.48;
+  padding-left: 15px; position: relative;
+}
+.defense-list li::before {
+  content: '✦'; position: absolute; left: 0; top: 0;
+  color: var(--amber); font-size: 9.5px;
+}
+.defense-list li strong {
+  color: var(--ink); font-weight: 700;
+}
+.defense-list li em {
+  color: var(--amber-d); font-style: normal; font-weight: 700;
+}
+
+.defense-banner {
+  background: linear-gradient(90deg, #fffdf5 0%, #fef3c7 100%);
+  border: 1px solid rgba(245,158,11,0.35); border-radius: 10px;
+  padding: 8px 14px; display: flex; align-items: center; gap: 10px;
+  font-size: 11.5px; color: var(--ink); font-weight: 600;
+}
+.defense-banner-icon {
+  font-size: 16px; color: var(--amber-d); flex-shrink: 0;
+}
+
+</style>
+</head>
+<body>
+
+<!-- Ambient canvas -->
+<canvas id="glCanvas"></canvas>
+
+<div class="deck">
+
+<!-- ════════════════════════════════
+     SLIDE 0 (SLIDE 1) — PERSONAL INTRO (LAYOUT CHUẨN ẢNH MẪU)
+════════════════════════════════ -->
+<div class="slide active" id="s0">
+  <div class="s-topbar">
+    <div class="s-brand">
+      <div class="s-brand-mark">✳</div>
+      <div>
+        <div class="s-brand-name">MINH HOÀNG</div>
+        <div class="s-brand-sub">AI Data Analyst Agent</div>
+      </div>
+    </div>
+    <div class="s-nav" id="nd0"></div>
+    <div class="s-slide-num">01 / 06</div>
+  </div>
+
+  <div class="s-body">
+    <!-- Top 2-Column Section -->
+    <div class="pi-layout-top">
+      <div class="pi-left-author">
+        <div class="pi-prefix-label">NGƯỜI THỰC HIỆN & PHÁT TRIỂN</div>
+        <div class="pi-author-name">
+          Nguyễn<br/>
+          <em>Minh Hoàng</em>
+        </div>
+        <div class="pi-badge-group">
+          <span class="pi-badge">🎓 Lớp QTKD 2</span>
+          <span class="pi-badge">⚡ AI Data Analyst Builder</span>
+          <span class="pi-badge">📍 Đề án Ứng dụng Thực tiễn</span>
+        </div>
+        <div class="pi-accent-sep"></div>
+        <p class="pi-author-desc">
+          Xây dựng AI Agent phân tích dữ liệu kinh doanh đa hình thích ứng — tự động đọc cấu trúc file, tương tác Người ↔ AI để xác định phạm vi, trực quan hóa Dashboard KPI và giải đáp câu hỏi quản trị theo dữ liệu thực tế.
+        </p>
+
+        <!-- Mini Highlights Trio -->
+        <div class="pi-highlights">
+          <div class="pi-hl-item">
+            <div class="pi-hl-title"><span>✦</span> Auto Schema</div>
+            <div class="pi-hl-desc">Nhận diện kiểu dữ liệu, bắt lỗi ô trống & lệch chuẩn ngay tại bảng.</div>
+          </div>
+          <div class="pi-hl-item">
+            <div class="pi-hl-title"><span>✦</span> Scope 1-1</div>
+            <div class="pi-hl-desc">Đối thoại trực tiếp để chốt trọng tâm KPI & bộ lọc kinh doanh.</div>
+          </div>
+          <div class="pi-hl-item">
+            <div class="pi-hl-title"><span>✦</span> 1-Click BI</div>
+            <div class="pi-hl-desc">Dựng 4 biểu đồ thích ứng & xuất báo cáo HTML độc lập tức thì.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Right Main Project Card - Rich Showcase -->
+      <div class="pi-main-project-card">
+        <div class="pi-watermark-mh">MH</div>
+
+        <div class="pi-card-topbar">
+          <div class="pi-project-icon-box">
+            <svg width="24" height="24" viewBox="0 0 28 28" fill="none">
+              <rect x="2" y="5" width="24" height="18" rx="6" fill="#fffdf5" stroke="#f59e0b" stroke-width="2"/>
+              <circle cx="9" cy="14" r="2.5" fill="#d97706"/>
+              <circle cx="19" cy="14" r="2.5" fill="#d97706"/>
+              <path d="M11 18.5 C12.5 19.5 15.5 19.5 17 18.5" stroke="#d97706" stroke-width="1.8" stroke-linecap="round"/>
+              <line x1="14" y1="2" x2="14" y2="5" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="14" cy="2" r="1.5" fill="#f59e0b"/>
+            </svg>
+          </div>
+          <span class="pi-live-badge"><span class="pi-live-dot"></span>SẴN SÀNG TRIỂN KHAI</span>
+        </div>
+
+        <div>
+          <div class="pi-project-meta-lbl">ĐỀ TÀI & SẢN PHẨM</div>
+          <div class="pi-project-meta-val">
+            Minh Hoàng
+            <span>AI Data Analyst Agent</span>
+          </div>
+          <div class="pi-project-meta-sub">Trợ lý Phân tích Dữ liệu Đa hình & Ra quyết định Quản trị</div>
+        </div>
+
+        <!-- 3 Key Metric Stats -->
+        <div class="pi-card-stats">
+          <div class="pi-card-stat">
+            <strong>6 Bước</strong>
+            <small>Khép kín</small>
+          </div>
+          <div class="pi-card-stat">
+            <strong>5 Ngành</strong>
+            <small>Thích ứng</small>
+          </div>
+          <div class="pi-card-stat">
+            <strong>100%</strong>
+            <small>Số liệu thật</small>
+          </div>
+        </div>
+
+        <!-- Tech tags -->
+        <div class="pi-card-tags">
+          <span class="pi-card-tag">Gemini Dual-Brain</span>
+          <span class="pi-card-tag">CSV · Excel · Sheets</span>
+          <span class="pi-card-tag">HTML5 BI Dashboard</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom 4 Cards Row -->
+    <div class="pi-bottom-trio">
+      <!-- Card 1: Lớp -->
+      <div class="pi-trio-card">
+        <div class="pi-trio-icon-box">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M12 3 L1 9 L12 15 L23 9 Z" fill="#f59e0b" stroke="#d97706" stroke-width="1.5" stroke-linejoin="round"/>
+            <path d="M5 11.5 V17 C5 19.5 8.5 21 12 21 C15.5 21 19 19.5 19 17 V11.5" stroke="#d97706" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+            <path d="M23 9 V16" stroke="#f59e0b" stroke-width="1.8" stroke-linecap="round"/>
+            <circle cx="23" cy="16.5" r="1.5" fill="#d97706"/>
+          </svg>
+        </div>
+        <div class="pi-trio-info">
+          <small>LỚP</small>
+          <strong>QTKD 2</strong>
+        </div>
+      </div>
+
+      <!-- Card 2: Giảng viên -->
+      <div class="pi-trio-card">
+        <div class="pi-trio-icon-box">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <circle cx="12" cy="7" r="4" fill="#fffdf5" stroke="#d97706" stroke-width="1.8"/>
+            <path d="M4 21 C4 16.5 7.5 14 12 14 C16.5 14 20 16.5 20 21" stroke="#d97706" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+            <path d="M17 3 L21 7 M21 3 L17 7" stroke="#f59e0b" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </div>
+        <div class="pi-trio-info">
+          <small>GIẢNG VIÊN HƯỚNG DẪN</small>
+          <strong>Thầy Lê Thành Ngọc</strong>
+        </div>
+      </div>
+
+      <!-- Card 3: Môn học -->
+      <div class="pi-trio-card">
+        <div class="pi-trio-icon-box">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <path d="M4 19.5 C4 17.5 5.5 16 7.5 16 H20 V4 H7.5 C5.5 4 4 5.5 4 7.5 V19.5 Z" fill="#fffdf5" stroke="#d97706" stroke-width="1.8" stroke-linejoin="round"/>
+            <path d="M4 19.5 C4 20.9 5.1 22 6.5 22 H20 V16 H7.5" fill="none" stroke="#d97706" stroke-width="1.8"/>
+            <path d="M10 9 L12 7 L14 9 L12 11 Z" fill="#f59e0b"/>
+          </svg>
+        </div>
+        <div class="pi-trio-info">
+          <small>MÔN HỌC</small>
+          <strong>AI Agent 301</strong>
+        </div>
+      </div>
+
+      <!-- Card 4: Kỳ báo cáo / Đồ án -->
+      <div class="pi-trio-card">
+        <div class="pi-trio-icon-box">
+          <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+            <rect x="3" y="4" width="18" height="17" rx="3" fill="#fffdf5" stroke="#d97706" stroke-width="1.8"/>
+            <line x1="3" y1="9" x2="21" y2="9" stroke="#f59e0b" stroke-width="1.8"/>
+            <line x1="8" y1="2" x2="8" y2="5" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+            <line x1="16" y1="2" x2="16" y2="5" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+            <circle cx="8" cy="14" r="1.5" fill="#f59e0b"/>
+            <circle cx="12" cy="14" r="1.5" fill="#d97706"/>
+            <circle cx="16" cy="14" r="1.5" fill="#f59e0b"/>
+          </svg>
+        </div>
+        <div class="pi-trio-info">
+          <small>KỲ BÁO CÁO</small>
+          <strong>Học kỳ Fall 2026</strong>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Bottom Amber Accent Bar -->
+  <div class="pi-bottom-amber-bar"></div>
+</div>
+
+<!-- ════════════════════════════════
+     SLIDE 1 — COVER
+════════════════════════════════ -->
+<div class="slide" id="s1">
+  <div class="s-topbar">
+    <div class="s-brand">
+      <div class="s-brand-mark">✳</div>
+      <div>
+        <div class="s-brand-name">MINH HOÀNG</div>
+        <div class="s-brand-sub">AI Data Analyst Agent</div>
+      </div>
+    </div>
+    <div class="s-nav" id="nd1"></div>
+    <div class="s-slide-num">02 / 06</div>
+  </div>
+
+  <div class="s-body">
+    <div class="cover-kicker-wrap">
+      <div class="cover-kicker-line"></div>
+      <div class="tag"><span class="dot"></span>Nền tảng AI Agent Phân tích Dữ liệu</div>
+    </div>
+
+    <div class="cover-title">
+      Dữ liệu rõ ràng —<br/>
+      Quyết định&nbsp;<span class="hl-wrap"><span class="hl-bg"></span><span class="hl-text">Chính xác</span></span>
+    </div>
+
+    <p class="cover-sub">
+      AI Agent tự động đọc, chuẩn hóa, trực quan hóa và giải đáp sâu mọi bài toán kinh doanh từ đa dạng bảng dữ liệu bạn cung cấp.
+    </p>
+
+    <div class="cover-tags">
+      <span class="cover-tag">✦ Phân tích Đa hình</span>
+      <span class="cover-tag">✦ Tương tác AI Trực tiếp</span>
+      <span class="cover-tag">✦ Dashboard KPI Động</span>
+      <span class="cover-tag">✦ Xuất Báo cáo HTML 1-Click</span>
+    </div>
+  </div>
+
+  <div class="cover-deco">
+    <div class="cover-deco-ring">
+      <div class="cover-deco-inner">✳</div>
+    </div>
+  </div>
+
+  <div class="ticker-strip">
+    <div class="ticker-track">
+      <span>✦ PHÂN TÍCH ĐA HÌNH</span><span>✦ DASHBOARD KPI ĐỘNG</span><span>✦ TƯƠNG TÁC AI TRỰC TIẾP</span><span>✦ LÀM SẠCH DỮ LIỆU</span><span>✦ GEMINI DUAL-BRAIN</span><span>✦ BIỂU ĐỒ XU HƯỚNG</span><span>✦ XUẤT BÁO CÁO HTML</span>
+      <span>✦ PHÂN TÍCH ĐA HÌNH</span><span>✦ DASHBOARD KPI ĐỘNG</span><span>✦ TƯƠNG TÁC AI TRỰC TIẾP</span><span>✦ LÀM SẠCH DỮ LIỆU</span><span>✦ GEMINI DUAL-BRAIN</span><span>✦ BIỂU ĐỒ XU HƯỚNG</span><span>✦ XUẤT BÁO CÁO HTML</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     SLIDE 2 (SLIDE 3) — BÀI TOÁN (CHUẨN ẢNH MẪU + STICKERS VÀNG TRẮNG)
+════════════════════════════════ -->
+<div class="slide" id="s2">
+  <div class="s-topbar">
+    <div class="s-brand">
+      <div class="s-brand-mark">✳</div>
+      <div>
+        <div class="s-brand-name">MINH HOÀNG</div>
+        <div class="s-brand-sub">AI Data Analyst Agent</div>
+      </div>
+    </div>
+    <div class="s-nav" id="nd2"></div>
+    <div class="s-slide-num">03 / 06</div>
+  </div>
+
+  <div class="s-body">
+    <div class="pain-header-wrap">
+      <div class="pain-tag-pill"><span class="dot"></span>BÀI TOÁN</div>
+      <div class="pain-title-large">
+        Dữ liệu có đó —<br/>
+        Nhưng khó khai thác
+      </div>
+    </div>
+
+    <div class="pain-cards-grid">
+      <!-- Card 1 -->
+      <div class="pain-feature-card">
+        <div>
+          <div class="pain-card-top-row">
+            <div class="pain-card-icon-circle">
+              <!-- Wrench in Gold/White -->
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <path d="M14.7 6.3a1 1 0 0 0 0 1.4l1.6 1.6a1 1 0 0 0 1.4 0l3.77-3.77a6 6 0 0 1-7.94 7.94l-6.91 6.91a2.12 2.12 0 0 1-3-3l6.91-6.91a6 6 0 0 1 7.94-7.94l-3.76 3.76z" stroke="#d97706" stroke-width="2" fill="#fffdf5"/>
+              </svg>
+            </div>
+            <span class="pain-pill-label">VẤN ĐỀ</span>
+            <span class="pain-card-num-watermark">01</span>
+          </div>
+          <h3>Dashboard cứng nhắc</h3>
+          <p>Power BI, Excel yêu cầu cấu hình lại mỗi khi cấu trúc bảng thay đổi. Phụ thuộc chuyên gia kỹ thuật để setup và bảo trì liên tục.</p>
+        </div>
+
+        <!-- Yellow/White Vector Sticker: Excel & Gears -->
+        <div class="pain-card-sticker-area">
+          <div class="pain-sticker-wrap">
+            <svg width="88" height="58" viewBox="0 0 88 58" fill="none">
+              <!-- Gears behind -->
+              <circle cx="28" cy="34" r="15" fill="#fffdf5" stroke="#f59e0b" stroke-width="2.5" stroke-dasharray="6,4"/>
+              <circle cx="28" cy="34" r="5.5" fill="#fef3c7" stroke="#d97706" stroke-width="2"/>
+              <circle cx="68" cy="40" r="11" fill="#fffdf5" stroke="#d97706" stroke-width="2" stroke-dasharray="5,3"/>
+              <circle cx="68" cy="40" r="4" fill="#f59e0b"/>
+              <!-- Excel Spreadsheet Window -->
+              <rect x="24" y="8" width="46" height="34" rx="5" fill="#ffffff" stroke="#d97706" stroke-width="1.8"/>
+              <rect x="24" y="8" width="46" height="9" rx="4" fill="linear-gradient(90deg, #f59e0b, #d97706)"/>
+              <line x1="24" y1="22" x2="70" y2="22" stroke="#fef3c7" stroke-width="1.5"/>
+              <line x1="24" y1="30" x2="70" y2="30" stroke="#fef3c7" stroke-width="1.5"/>
+              <line x1="42" y1="17" x2="42" y2="42" stroke="#fef3c7" stroke-width="1.5"/>
+              <line x1="56" y1="17" x2="56" y2="42" stroke="#fef3c7" stroke-width="1.5"/>
+              <!-- Golden Excel Badge with X -->
+              <rect x="18" y="14" width="16" height="18" rx="3.5" fill="#d97706" stroke="#ffffff" stroke-width="1.5"/>
+              <text x="26" y="27" font-size="12" font-weight="900" fill="#ffffff" text-anchor="middle" font-family="Inter, sans-serif">X</text>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 2 (Active Highlighted) -->
+      <div class="pain-feature-card highlighted">
+        <div>
+          <div class="pain-card-top-row">
+            <div class="pain-card-icon-circle" style="background:#fef3c7;border-color:var(--amber);">
+              <!-- Robot icon in Gold/White -->
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
+                <rect x="3" y="6" width="18" height="14" rx="4" fill="#fffdf5" stroke="#d97706" stroke-width="1.8"/>
+                <circle cx="8.5" cy="12" r="1.8" fill="#d97706"/>
+                <circle cx="15.5" cy="12" r="1.8" fill="#d97706"/>
+                <line x1="12" y1="2" x2="12" y2="6" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+                <circle cx="12" cy="2" r="1.5" fill="#f59e0b"/>
+              </svg>
+            </div>
+            <span class="pain-pill-label" style="background:var(--amber);color:var(--ink);">VẤN ĐỀ</span>
+            <span class="pain-card-num-watermark" style="color:rgba(245,158,11,0.28);">02</span>
+          </div>
+          <h3>AI thông thường "bịa" số liệu</h3>
+          <p>ChatGPT, Claude thường xuyên tính sai số học hoặc đưa ra số liệu không có thật trong dữ liệu thực tế của doanh nghiệp.</p>
+        </div>
+
+        <!-- Yellow/White Vector Sticker: Confused Robot + ? + Numbers -->
+        <div class="pain-card-sticker-area">
+          <div class="pain-sticker-wrap">
+            <svg width="96" height="60" viewBox="0 0 96 60" fill="none">
+              <!-- Floating numbers and question marks in gold -->
+              <g font-family="Inter, sans-serif" font-weight="900" fill="#f59e0b">
+                <text x="14" y="22" font-size="13" opacity="0.75">?</text>
+                <text x="22" y="42" font-size="11" opacity="0.6">5</text>
+                <text x="76" y="16" font-size="12" opacity="0.7">4</text>
+                <text x="84" y="32" font-size="14" opacity="0.6">1</text>
+                <text x="74" y="46" font-size="11" opacity="0.75">3</text>
+              </g>
+              <!-- Antennas -->
+              <line x1="48" y1="6" x2="48" y2="13" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="48" cy="5" r="2.8" fill="#f59e0b" stroke="#ffffff" stroke-width="1"/>
+              <!-- Head -->
+              <rect x="34" y="13" width="28" height="22" rx="7" fill="#ffffff" stroke="#d97706" stroke-width="2"/>
+              <!-- Screen visor -->
+              <rect x="38" y="17" width="20" height="11" rx="4" fill="#fef3c7"/>
+              <circle cx="43" cy="22.5" r="2.2" fill="#d97706"/>
+              <circle cx="53" cy="22.5" r="2.2" fill="#d97706"/>
+              <path d="M44 30 Q48 28 52 30" stroke="#d97706" stroke-width="1.5" stroke-linecap="round"/>
+              <!-- Ears -->
+              <rect x="31" y="20" width="3" height="7" rx="1.5" fill="#f59e0b"/>
+              <rect x="62" y="20" width="3" height="7" rx="1.5" fill="#f59e0b"/>
+              <!-- Body -->
+              <rect x="44" y="35" width="8" height="4" fill="#d97706"/>
+              <path d="M36 39 C36 39 42 38 48 38 C54 38 60 39 60 39 L63 54 C63 54 55 56 48 56 C41 56 33 54 33 54 Z" fill="linear-gradient(180deg, #ffffff, #fef3c7)" stroke="#d97706" stroke-width="1.8"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="pain-feature-card">
+        <div>
+          <div class="pain-card-top-row">
+            <div class="pain-card-icon-circle">
+              <!-- Speaker / mute in Gold/White -->
+              <svg width="18" height="18" viewBox="0 0 24 24" fill="none">
+                <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5" fill="#fffdf5" stroke="#d97706" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+                <line x1="23" y1="9" x2="17" y2="15" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+                <line x1="17" y1="9" x2="23" y2="15" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+              </svg>
+            </div>
+            <span class="pain-pill-label">VẤN ĐỀ</span>
+            <span class="pain-card-num-watermark">03</span>
+          </div>
+          <h3>Báo cáo không trả lời đúng câu hỏi</h3>
+          <p>Kết quả chung chung, không bám câu hỏi thực tế của người quản lý. Thiếu dẫn chứng để kiểm chứng độc lập.</p>
+        </div>
+
+        <!-- Yellow/White Vector Sticker: Analyst & Query Board -->
+        <div class="pain-card-sticker-area">
+          <div class="pain-sticker-wrap">
+            <svg width="94" height="60" viewBox="0 0 94 60" fill="none">
+              <!-- Query Cards on left -->
+              <rect x="10" y="16" width="36" height="12" rx="3.5" fill="#ffffff" stroke="#f59e0b" stroke-width="1.5"/>
+              <line x1="16" y1="22" x2="38" y2="22" stroke="#fef3c7" stroke-width="2.5" stroke-linecap="round"/>
+              <rect x="10" y="32" width="36" height="12" rx="3.5" fill="#ffffff" stroke="#f59e0b" stroke-width="1.5"/>
+              <line x1="16" y1="38" x2="32" y2="38" stroke="#fef3c7" stroke-width="2.5" stroke-linecap="round"/>
+              <!-- Question bubble in gold -->
+              <circle cx="48" cy="13" r="9.5" fill="linear-gradient(135deg, #f59e0b, #d97706)" stroke="#ffffff" stroke-width="1.5"/>
+              <text x="48" y="18" font-size="12" font-weight="900" fill="#ffffff" text-anchor="middle" font-family="Inter, sans-serif">?</text>
+              <!-- Manager silhouette in amber/white -->
+              <circle cx="68" cy="18" r="7.5" fill="#fffdf5" stroke="#d97706" stroke-width="1.8"/>
+              <path d="M62 16 C62 12 66 10 72 11 C75 12 76 14 76 16" stroke="#f59e0b" stroke-width="2" stroke-linecap="round"/>
+              <path d="M57 52 L59 34 C59 29 63 27 68 27 C73 27 77 29 77 34 L79 52 Z" fill="#ffffff" stroke="#d97706" stroke-width="1.8"/>
+              <path d="M67 29 L69 29 L70 39 L68 42 L66 39 Z" fill="#d97706"/>
+              <path d="M77 34 L86 40" stroke="#d97706" stroke-width="2" stroke-linecap="round"/>
+              <circle cx="87" cy="40" r="2.5" fill="#f59e0b"/>
+            </svg>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Highlight Solution Bar -->
+    <div class="pain-solution-bar">
+      <span class="star-gold">✦</span>
+      <p>
+        <strong>Minh Hoàng AI Data Analyst</strong> giải quyết triệt để cả 3 điểm nghẽn — không cần setup cứng, không bịa số liệu, trả lời đúng câu hỏi kèm dẫn chứng cụ thể từ dữ liệu thực tế.
+      </p>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     SLIDE 3 — 6 BƯỚC NGUYÊN MẪU AGENT (WF-SPLIT-GRID)
+════════════════════════════════ -->
+<div class="slide" id="s3">
+  <div class="s-topbar">
+    <div class="s-brand">
+      <div class="s-brand-mark">✳</div>
+      <div>
+        <div class="s-brand-name">MINH HOÀNG</div>
+        <div class="s-brand-sub">AI Data Analyst Agent</div>
+      </div>
+    </div>
+    <div class="s-nav" id="nd3"></div>
+    <div class="s-slide-num">04 / 06</div>
+  </div>
+
+  <div class="s-body">
+    <div class="wf-slide-head">
+      <div class="tag" style="margin-bottom:8px;"><span class="dot"></span>TRANG 2 · QUY TRÌNH PHÂN TÍCH CỦA AI AGENT</div>
+      <h2>6 Bước Phân tích Khép kín</h2>
+      <p>Di chuột hoặc bấm từng bước [1]–[6] để xem chi tiết; bấm mũi tên để vào thẳng bước nạp file phân tích.</p>
+    </div>
+
+    <div class="wf-split-grid">
+      <div class="wf-left-preview">
+        <div id="slideWfPreview" class="wf-preview-screen">
+          <div class="preview-chip">BƯỚC 03 · PHẠM VI &amp; LÀM SẠCH</div>
+          <div class="preview-metric">Interactive AI Scope</div>
+          <h4>Trao đổi AI &amp; Chuẩn hóa Dữ liệu</h4>
+          <p>AI đọc trực tiếp nội dung file, gợi ý câu hỏi theo góc nhìn thực tế, chat chốt phạm vi và làm sạch dữ liệu.</p>
+          <div class="preview-footer">
+            <span class="live-dot"></span>
+            <span>Đồng bộ phạm vi xuống Dashboard</span>
+          </div>
+        </div>
+      </div>
+
+      <div class="wf-numbered-list" id="slideWfList">
+        <div class="wf-list-item" data-step="1">
+          <span class="wf-idx">[1]</span>
+          <div class="wf-item-body">
+            <strong>Nhận File CSV / Excel / Google Sheets</strong>
+            <small>Nạp trực tiếp dữ liệu bán lẻ, hợp đồng, marketing, tài chính hoặc bảng tùy ý.</small>
+          </div>
+          <span class="wf-item-arrow">↗</span>
+        </div>
+
+        <div class="wf-list-item" data-step="2">
+          <span class="wf-idx">[2]</span>
+          <div class="wf-item-body">
+            <strong>Kiểm tra Cấu trúc &amp; Định dạng Dữ liệu</strong>
+            <small>Tự động quét kiểu cột, phát hiện ô lỗi/thiếu và hỗ trợ sửa trực tiếp tại bảng.</small>
+          </div>
+          <span class="wf-item-arrow">↗</span>
+        </div>
+
+        <div class="wf-list-item active" data-step="3">
+          <span class="wf-idx">[3]</span>
+          <div class="wf-item-body">
+            <strong>Trao đổi Phạm vi với AI &amp; Làm sạch</strong>
+            <small>AI đọc file, gợi ý câu hỏi sát dữ liệu, chat trực tiếp để chốt KPI &amp; chuẩn hóa sạch bảng.</small>
+          </div>
+          <span class="wf-item-arrow">↗</span>
+        </div>
+
+        <div class="wf-list-item" data-step="4">
+          <span class="wf-idx">[4]</span>
+          <div class="wf-item-body">
+            <strong>Process (AI Agent Phân tích Đa hình)</strong>
+            <small>Nhận diện lĩnh vực, tính toán KPI trung thực, lọc theo yêu cầu và tổng hợp nhận định Gemini.</small>
+          </div>
+          <span class="wf-item-arrow">↗</span>
+        </div>
+
+        <div class="wf-list-item" data-step="5">
+          <span class="wf-idx">[5]</span>
+          <div class="wf-item-body">
+            <strong>Verify &amp; Phản hồi Tinh chỉnh</strong>
+            <small>Kiểm chứng tính nhất quán, không bịa số liệu; cho phép gửi góp ý để AI phân tích lại.</small>
+          </div>
+          <span class="wf-item-arrow">↗</span>
+        </div>
+
+        <div class="wf-list-item" data-step="6">
+          <span class="wf-idx">[6]</span>
+          <div class="wf-item-body">
+            <strong>Dashboard KPI, Báo cáo &amp; Xuất HTML</strong>
+            <small>Biểu đồ tự thích ứng, giải đáp trực tiếp câu hỏi đã trao đổi và tải báo cáo HTML 1-Click.</small>
+          </div>
+          <span class="wf-item-arrow">↗</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="ticker-strip">
+    <div class="ticker-track">
+      <span>✦ BƯỚC 1: NẠP FILE</span><span>✦ BƯỚC 2: KIỂM ĐỊNH</span><span>✦ BƯỚC 3: PHẠM VI AI</span><span>✦ BƯỚC 4: KPI DASHBOARD</span><span>✦ BƯỚC 5: VERIFY</span><span>✦ BƯỚC 6: BÁO CÁO HTML</span>
+      <span>✦ BƯỚC 1: NẠP FILE</span><span>✦ BƯỚC 2: KIỂM ĐỊNH</span><span>✦ BƯỚC 3: PHẠM VI AI</span><span>✦ BƯỚC 4: KPI DASHBOARD</span><span>✦ BƯỚC 5: VERIFY</span><span>✦ BƯỚC 6: BÁO CÁO HTML</span>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     SLIDE 5 — LỢI ÍCH VƯỢT TRỘI (2X2 GRID + MINH HOÀNG AI AGENT DATA)
+════════════════════════════════ -->
+<div class="slide" id="s5">
+  <div class="s-topbar">
+    <div class="s-brand">
+      <div class="s-brand-mark">✳</div>
+      <div>
+        <div class="s-brand-name">MINH HOÀNG</div>
+        <div class="s-brand-sub">AI Data Analyst Agent</div>
+      </div>
+    </div>
+    <div class="s-nav" id="nd5"></div>
+    <div class="s-slide-num">05 / 06</div>
+  </div>
+
+  <div class="s-body">
+    <div class="benefit-head">
+      <h2 class="benefit-title">
+        LỢI ÍCH VƯỢT TRỘI CỦA<br/>
+        MINH HOÀNG <span class="hl-amber">AI AGENT</span>
+      </h2>
+    </div>
+
+    <div class="benefit-grid">
+      <!-- Card 1 -->
+      <div class="benefit-card">
+        <div class="benefit-card-title">DỮ LIỆU RÕ RÀNG – QUYẾT ĐỊNH CHÍNH XÁC</div>
+        <div class="benefit-card-visual">
+          <div class="v1-flow">
+            <div class="v1-files">
+              <div class="v1-file-badge">📄 CSV</div>
+              <div class="v1-file-badge">📊 XLSX</div>
+              <div class="v1-file-badge">📑 G-Sheet</div>
+            </div>
+            <div class="v1-arrow">→</div>
+            <div class="v1-mock">
+              <div class="v1-mock-row">
+                <span style="font-weight:700;color:var(--muted)">DOANH THU</span>
+                <span class="v1-mock-delta">▼ -17,9%</span>
+              </div>
+              <div class="v1-mock-kpi">243.511.000 <small style="font-size:9px;font-weight:700">VND</small></div>
+              <div style="font-size:9.5px;color:var(--muted);margin-top:2px;">
+                Lợi nhuận: <strong style="color:var(--ink)">113.872.000 VND</strong>
+              </div>
+              <div style="font-size:8.5px;background:rgba(245,158,11,0.12);padding:2px 5px;border-radius:4px;color:var(--amber-d);margin-top:4px;font-weight:700;">
+                ● AI: 12/48 dòng sạch T09/2026
+              </div>
+            </div>
+            <div class="v1-arrow">→</div>
+            <div class="v1-decision">
+              <div class="v1-check-circle">✓</div>
+              <span>Decision</span>
+            </div>
+          </div>
+        </div>
+        <div class="benefit-card-foot">
+          <strong>Tự động hóa &amp; Phân tích sâu</strong>
+          <small>&lt;Minh Hoàng AI Engine · Gemini Dual-Brain&gt;</small>
+        </div>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="benefit-card">
+        <div class="benefit-card-title">THÍCH ỨNG MỌI NGỮ CẢNH DOANH NGHIỆP</div>
+        <div class="benefit-card-visual">
+          <div class="v2-network">
+            <div class="v2-spokes">
+              <div class="v2-col">
+                <div class="v2-badge">🛒 Bán lẻ / E-com</div>
+                <div class="v2-badge">💼 Hợp đồng SaaS</div>
+              </div>
+              <div class="v2-col" style="align-items:flex-end">
+                <div class="v2-badge">📢 Ads / Marketing</div>
+                <div class="v2-badge">👥 Leads CRM</div>
+                <div class="v2-badge">📊 Bảng tùy ý</div>
+              </div>
+            </div>
+            <div class="v2-center">
+              <span>✳ AI Agent</span>
+            </div>
+          </div>
+        </div>
+        <div class="benefit-card-foot">
+          <strong>Dựng KPI phù hợp, không cần SQL cứng</strong>
+          <small>Tự động nhận diện cấu trúc file</small>
+        </div>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="benefit-card">
+        <div class="benefit-card-title">ĐƠN GIẢN HÓA KHAI THÁC DỮ LIỆU</div>
+        <div class="benefit-card-visual">
+          <div class="v3-chat-flow">
+            <div class="v3-user-bubble">
+              <strong>👤 User</strong>
+              Doanh thu T9 theo kênh nào cao nhất? Lọc riêng Website.
+            </div>
+            <div class="v1-arrow" style="font-size:14px;">→</div>
+            <div class="v3-agent-res">
+              <div class="v3-agent-res-top">
+                <span>🤖 AI Agent (Gemini)</span>
+                <span style="font-size:8px;background:rgba(22,163,74,0.12);color:#15803d;padding:1px 5px;border-radius:4px;">Live Fact</span>
+              </div>
+              <p>
+                <strong>Website dẫn đầu:</strong> 100.070.000 VND (41,1%, 4 dòng). Thấp nhất là Cửa hàng 62.699.000 VND.
+              </p>
+            </div>
+          </div>
+        </div>
+        <div class="benefit-card-foot">
+          <strong>Hỏi gì đáp nấy, kèm dẫn chứng</strong>
+          <small>Tương tác 2 chiều Người ↔ AI trực tiếp</small>
+        </div>
+      </div>
+
+      <!-- Card 4 -->
+      <div class="benefit-card">
+        <div class="benefit-card-title">PHÂN TÍCH TOÀN DIỆN VÀ TRỰC QUAN</div>
+        <div class="benefit-card-visual">
+          <div class="v4-charts-grid">
+            <div class="v4-mini-box">
+              <div class="v4-mini-title">📈 Xu hướng Doanh thu</div>
+              <svg width="100%" height="32" viewBox="0 0 100 32" style="overflow:visible">
+                <polyline fill="none" stroke="#f59e0b" stroke-width="2.5" points="0,26 30,22 65,14 100,6" />
+                <circle cx="100" cy="6" r="3.5" fill="#d97706" />
+              </svg>
+            </div>
+            <div class="v4-mini-box">
+              <div class="v4-mini-title">🍩 Cơ cấu Phân bổ</div>
+              <div style="display:flex;align-items:center;gap:6px;">
+                <svg width="32" height="32" viewBox="0 0 36 36">
+                  <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" fill="none" stroke="#fef3c7" stroke-width="6"/>
+                  <path d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831" fill="none" stroke="#f59e0b" stroke-width="6" stroke-dasharray="41, 100"/>
+                  <path d="M18 33.9155 a 15.9155 15.9155 0 0 1 -15.9155 -15.9155" fill="none" stroke="#111111" stroke-width="6" stroke-dasharray="33, 100"/>
+                </svg>
+                <div style="font-size:9px;line-height:1.2;color:var(--ink-2)">
+                  Web <strong>41%</strong><br/>TMĐT <strong>33%</strong>
+                </div>
+              </div>
+            </div>
+            <div class="v4-mini-box" style="grid-column: span 2; display:flex; align-items:center; justify-content:space-between; padding:5px 8px;">
+              <div style="font-size:9px;font-weight:700;color:var(--ink-2);">
+                📊 Ranking Bar: <span style="color:var(--amber-d)">Website</span> &gt; <span style="color:var(--ink)">TMĐT</span> &gt; <span style="color:var(--muted)">Cửa hàng</span>
+              </div>
+              <span style="font-size:8.5px;background:#15803d;color:#fff;font-weight:700;padding:1px 6px;border-radius:4px;">100% Sạch</span>
+            </div>
+          </div>
+        </div>
+        <div class="benefit-card-foot">
+          <strong>Hiển thị tức thì, dễ theo dõi</strong>
+          <small>Báo cáo điều hành &amp; Xuất HTML 1-Click</small>
+        </div>
+      </div>
+    </div>
+
+    <!-- Bottom Action Button -->
+    <div class="benefit-bottom-cta">
+      <a href="http://localhost:8765" target="_blank" class="btn-cta-experience">
+        BẮT ĐẦU TRẢI NGHIỆM NGAY ↗
+      </a>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════
+     SLIDE 6 — PHỤ LỤC PHẢN BIỆN (DEFENSE APPENDIX)
+════════════════════════════════ -->
+<div class="slide" id="s6">
+  <div class="s-topbar">
+    <div class="s-brand">
+      <div class="s-brand-mark">✳</div>
+      <div>
+        <div class="s-brand-name">MINH HOÀNG</div>
+        <div class="s-brand-sub">AI Data Analyst Agent</div>
+      </div>
+    </div>
+    <div class="s-nav" id="nd6"></div>
+    <div class="s-slide-num">06 / 06</div>
+  </div>
+
+  <div class="s-body">
+    <div class="defense-head">
+      <div>
+        <div class="defense-tag"><span class="dot"></span>Phụ lục bảo vệ · Q&amp;A Defense</div>
+        <h2 class="defense-title">
+          PHỤ LỤC PHẢN BIỆN &amp; <span class="hl-amber">KIỂM CHỨNG ĐỘ CHÍNH XÁC</span>
+        </h2>
+      </div>
+      <div class="defense-meta">
+        Auditable AI · Code Computes, LLM Reasons
+      </div>
+    </div>
+
+    <div class="defense-grid">
+      <!-- Card 1 -->
+      <div class="defense-card">
+        <div class="defense-card-header">
+          <div class="defense-card-title">
+            <span>01</span> Tính chính xác (Anti-Hallucination)
+          </div>
+          <span class="defense-card-badge">Zero Hallucination</span>
+        </div>
+        <ul class="defense-list">
+          <li><strong>Nguyên tắc:</strong> <em>"Code computes, LLM reasons"</em> — Phân tách tuyệt đối tính toán và suy luận.</li>
+          <li><strong>Thuật toán xác định:</strong> 100% KPI, tổng tiền, % tăng trưởng do Deterministic Engine tính trực tiếp trên mảng dữ liệu gốc.</li>
+          <li><strong>Vai trò LLM (Gemini):</strong> Tuyệt đối không làm toán thô; chỉ nhận số liệu đã tính đúng để phân tích ngữ cảnh và đề xuất quản trị.</li>
+        </ul>
+      </div>
+
+      <!-- Card 2 -->
+      <div class="defense-card">
+        <div class="defense-card-header">
+          <div class="defense-card-title">
+            <span>02</span> Cơ chế kiểm chứng 3 lớp (Auditability)
+          </div>
+          <span class="defense-card-badge">Khả năng kiểm toán</span>
+        </div>
+        <ul class="defense-list">
+          <li><strong>Lớp 1 · Đối chiếu chéo:</strong> Tổng các phần tử Donut / Bar luôn = 100% và khớp chính xác số tổng KPI ở đầu trang.</li>
+          <li><strong>Lớp 2 · Minh bạch phạm vi:</strong> Mọi thẻ/biểu đồ ghi rõ mẫu số thực tế (VD: <em>12/48 dòng sạch</em>, <em>Kỳ T09/2026</em>, <em>Lọc Website</em>).</li>
+          <li><strong>Lớp 3 · Vết thực thi (Trace Log):</strong> Tự sinh log JSONL (Run ID, tool gọi, rules áp dụng, input/output) có thể tái lập độc lập.</li>
+        </ul>
+      </div>
+
+      <!-- Card 3 -->
+      <div class="defense-card">
+        <div class="defense-card-header">
+          <div class="defense-card-title">
+            <span>03</span> Chặn lỗi dữ liệu bẩn (Data Quality Gate)
+          </div>
+          <span class="defense-card-badge">Xử lý ngoại lệ</span>
+        </div>
+        <ul class="defense-list">
+          <li><strong>Chuẩn hóa Schema:</strong> Tự bóc tách định dạng tiền tệ (<em>VND, $</em>), dấu chấm/phẩy kiểu Việt Nam, ép kiểu số an toàn.</li>
+          <li><strong>Chế độ kiểm duyệt (Quarantine):</strong> Bắt lỗi ô sai kiểu hoặc thiếu khóa chính, chỉ rõ tọa độ ô lỗi để sửa ngay tại bảng.</li>
+          <li><strong>Minh bạch ô khuyết:</strong> Gom vào nhóm <em>(Ô trống)</em> để cảnh báo trên biểu đồ, không bao giờ tự ý bịa thêm dữ liệu khuyết.</li>
+        </ul>
+      </div>
+
+      <!-- Card 4 -->
+      <div class="defense-card">
+        <div class="defense-card-header">
+          <div class="defense-card-title">
+            <span>04</span> Giá trị Agent vs Dashboard tĩnh (Power BI)
+          </div>
+          <span class="defense-card-badge">Agentic AI</span>
+        </div>
+        <ul class="defense-list">
+          <li><strong>Đa hình tự thích ứng:</strong> Tự nhận diện lĩnh vực (Bán lẻ, SaaS, Marketing, CRM) để sinh đúng 4 thẻ KPI; không cần code DAX cứng.</li>
+          <li><strong>Interactive Scope 2 chiều:</strong> Hội thoại Người ↔ AI hiểu ý định (Intent), tự động co giãn bộ lọc và vẽ lại biểu đồ tức thì.</li>
+          <li><strong>Vòng lặp tinh chỉnh:</strong> Hỗ trợ phản hồi điều chỉnh để Agent chạy lại phân tích theo đúng góc nhìn quản trị mong muốn.</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Bottom Defense Statement Banner -->
+    <div class="defense-banner">
+      <div class="defense-banner-icon">🛡️</div>
+      <div>
+        <strong>Tuyên ngôn Bảo vệ đồ án:</strong> Hệ thống được thiết kế theo chuẩn <em>Auditable AI (AI có khả năng kiểm toán &amp; giải trình)</em> — đảm bảo số liệu trung thực, minh bạch quy trình và hỗ trợ nhà quản trị ra quyết định tin cậy.
+      </div>
+    </div>
+  </div>
+</div>
+
+</div><!-- /deck -->
+
+<div class="nav-controls">
+  <button class="nav-btn" id="btnPrev" onclick="goSlide(-1)" disabled>‹</button>
+  <button class="nav-btn" id="btnNext" onclick="goSlide(1)">›</button>
+</div>
+<div class="progress-bar"><div class="progress-fill" id="pFill"></div></div>
+<div class="kb-hint"><kbd>←</kbd> Trước &nbsp;|&nbsp; Tiếp <kbd>→</kbd> &nbsp;|&nbsp; <kbd>Space</kbd></div>
+
+<script>
+/* ── AMBIENT CANVAS ── */
+(function(){
+  const cv = document.getElementById('glCanvas');
+  const ctx = cv.getContext('2d');
+  let W, H, pts = [];
+  function resize(){
+    W = cv.width  = window.innerWidth;
+    H = cv.height = window.innerHeight;
+  }
+  function initPts(){
+    pts = Array.from({length:28},()=>({
+      x: Math.random()*W, y: Math.random()*H,
+      vx:(Math.random()-.5)*.3, vy:(Math.random()-.5)*.3,
+      r: 2+Math.random()*3
+    }));
+  }
+  function frame(){
+    ctx.clearRect(0,0,W,H);
+    pts.forEach(p=>{
+      p.x+=p.vx; p.y+=p.vy;
+      if(p.x<0||p.x>W) p.vx*=-1;
+      if(p.y<0||p.y>H) p.vy*=-1;
+      ctx.beginPath();
+      ctx.arc(p.x,p.y,p.r,0,Math.PI*2);
+      ctx.fillStyle='rgba(245,158,11,0.18)';
+      ctx.fill();
+    });
+    for(let i=0;i<pts.length;i++){
+      for(let j=i+1;j<pts.length;j++){
+        const dx=pts[i].x-pts[j].x, dy=pts[i].y-pts[j].y;
+        const d=Math.sqrt(dx*dx+dy*dy);
+        if(d<160){
+          ctx.beginPath();
+          ctx.moveTo(pts[i].x,pts[i].y);
+          ctx.lineTo(pts[j].x,pts[j].y);
+          ctx.strokeStyle=`rgba(245,158,11,${.07*(1-d/160)})`;
+          ctx.lineWidth=1;
+          ctx.stroke();
+        }
+      }
+    }
+    requestAnimationFrame(frame);
+  }
+  window.addEventListener('resize',()=>{resize();initPts();});
+  resize(); initPts(); frame();
+})();
+
+/* ── SLIDESHOW ── */
+const SLIDES = ['s0','s1','s2','s3','s5','s6'];
+const NAV_IDS = ['nd0','nd1','nd2','nd3','nd5','nd6'];
+const TOTAL   = SLIDES.length;
+let cur = 0;
+
+NAV_IDS.forEach(id => {
+  const el = document.getElementById(id);
+  if (!el) return;
+  SLIDES.forEach((_,i)=>{
+    const btn = document.createElement('button');
+    btn.className = 's-nav-dot'+(i===0?' on':'');
+    btn.addEventListener('click',()=>jumpSlide(i));
+    el.appendChild(btn);
+  });
+});
+
+function updateAll(){
+  NAV_IDS.forEach(id=>{
+    const el=document.getElementById(id);
+    if(!el) return;
+    Array.from(el.children).forEach((d,i)=>{ d.className='s-nav-dot'+(i===cur?' on':''); });
+  });
+  document.getElementById('pFill').style.width = ((cur+1)/TOTAL*100)+'%';
+  document.getElementById('btnPrev').disabled = cur===0;
+  document.getElementById('btnNext').disabled = cur===TOTAL-1;
+}
+
+function jumpSlide(next){
+  if(next===cur||next<0||next>=TOTAL) return;
+  const c=document.getElementById(SLIDES[cur]);
+  const n=document.getElementById(SLIDES[next]);
+  c.classList.add('exit');
+  setTimeout(()=>c.classList.remove('active','exit'),620);
+  n.classList.add('active');
+  cur=next; updateAll();
+}
+
+function goSlide(dir){ jumpSlide(cur+dir); }
+
+document.addEventListener('keydown',e=>{
+  if(e.key==='ArrowRight'||e.key===' '){ e.preventDefault(); goSlide(1); }
+  else if(e.key==='ArrowLeft'){ e.preventDefault(); goSlide(-1); }
+});
+
+updateAll();
+
+/* ── 6-STEP WORKFLOW INTERACTION MATCHING AGENT UI ── */
+const WF_DATA = {
+  1: {
+    badge: "BƯỚC 01 · ĐẦU VÀO",
+    metric: "CSV · XLSX · G-Sheet",
+    title: "Nhận CSV / Excel / Google Sheets",
+    desc: "Nạp trực tiếp file dữ liệu bán lẻ, hợp đồng, marketing, tài chính hoặc link Google Sheets công khai.",
+    status: "Tự động đọc mọi bảng dữ liệu"
+  },
+  2: {
+    badge: "BƯỚC 02 · KIỂM ĐỊNH",
+    metric: "Schema & Type Gate",
+    title: "Kiểm tra Cấu trúc & Định dạng Dữ liệu",
+    desc: "Tự động nhận diện kiểu cột số liệu, ngày tháng, phân nhóm và báo lỗi cụ thể từng ô để sửa ngay tại bảng.",
+    status: "Chặn dữ liệu lỗi ngay đầu vào"
+  },
+  3: {
+    badge: "BƯỚC 03 · PHẠM VI & LÀM SẠCH",
+    metric: "Interactive AI Scope",
+    title: "Trao đổi AI & Chuẩn hóa Dữ liệu",
+    desc: "AI đọc trực tiếp nội dung file, gợi ý câu hỏi theo góc nhìn thực tế, chat chốt phạm vi và làm sạch dữ liệu.",
+    status: "Đồng bộ phạm vi xuống Dashboard"
+  },
+  4: {
+    badge: "BƯỚC 04 · PROCESS",
+    metric: "Gemini Dual-Brain",
+    title: "Process (AI Agent Phân tích Đa hình)",
+    desc: "Tự động chọn 4 chỉ số KPI phù hợp lĩnh vực, lọc nhóm theo yêu cầu và tổng hợp nhận định Gemini.",
+    status: "Không bịa số liệu khi thiếu cột"
+  },
+  5: {
+    badge: "BƯỚC 05 · VERIFY",
+    metric: "Data Integrity Check",
+    title: "Verify & Phản hồi Tinh chỉnh",
+    desc: "Kiểm chứng tính nhất quán, không bịa số liệu; cho phép gửi góp ý để AI phân tích lại ngay.",
+    status: "Vòng lặp tinh chỉnh khép kín"
+  },
+  6: {
+    badge: "BƯỚC 06 · BÁO CÁO & XUẤT",
+    metric: "1-Click Export HTML",
+    title: "Dashboard KPI, Báo cáo & Xuất HTML",
+    desc: "Biểu đồ tự thích ứng, giải đáp trực tiếp câu hỏi đã trao đổi và tải báo cáo HTML 1-Click.",
+    status: "Hoàn tất + Log JSONL"
+  }
+};
+
+const wfItems = document.querySelectorAll("#slideWfList .wf-list-item");
+const wfPreview = document.getElementById("slideWfPreview");
+
+function setWfStep(num) {
+  const d = WF_DATA[num];
+  if (!d || !wfPreview) return;
+  wfItems.forEach(item => {
+    item.classList.toggle("active", Number(item.dataset.step) === Number(num));
+  });
+  wfPreview.innerHTML = `
+    <div class="preview-chip">${d.badge}</div>
+    <div class="preview-metric">${d.metric}</div>
+    <h4>${d.title}</h4>
+    <p>${d.desc}</p>
+    <div class="preview-footer">
+      <span class="live-dot"></span>
+      <span>${d.status}</span>
+    </div>
+  `;
+}
+
+wfItems.forEach(item => {
+  item.addEventListener("mouseenter", () => setWfStep(item.dataset.step));
+  item.addEventListener("click", () => setWfStep(item.dataset.step));
+});
+</script>
+</body>
+</html>
